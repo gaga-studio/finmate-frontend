@@ -1,0 +1,856 @@
+/* ============================================================
+   FinMate 시그니처 컴포넌트 (UI.md 4장)
+   대담함은 여기(비교 게이지 + 큰 숫자)에만 몬다. 나머지는 조용하게.
+   ============================================================ */
+
+/* ---------- 4.2 BigNumber ---------- */
+.fm-bignumber {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.fm-bignumber-value {
+  font-family: var(--font-display);
+  color: var(--ink-800);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.fm-bignumber-xl .fm-bignumber-value {
+  font-size: 48px;
+}
+
+.fm-bignumber-l .fm-bignumber-value {
+  font-size: 34px;
+}
+
+.fm-bignumber-value em {
+  font-style: normal;
+  font-family: var(--font-sans);
+  font-size: 0.4em;
+  font-weight: 700;
+  margin-left: 2px;
+  color: var(--ink-500);
+}
+
+.fm-bignumber-delta {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fm-bignumber-delta-good {
+  color: var(--teal-700);
+  background: var(--teal-50);
+}
+
+.fm-bignumber-delta-bad {
+  color: var(--red-600);
+  background: var(--red-50);
+}
+
+.fm-bignumber-caption {
+  color: var(--ink-500);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ---------- 4.1 CompareGauge ---------- */
+.fm-gauge {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.fm-gauge-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-500);
+}
+
+.fm-gauge-value {
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--ink-800);
+}
+
+.fm-gauge-value em {
+  font-style: normal;
+  font-family: var(--font-sans);
+  font-size: 0.4em;
+  font-weight: 700;
+  color: var(--ink-500);
+  margin-left: 2px;
+}
+
+.fm-gauge-track {
+  position: relative;
+  display: flex;
+  height: 14px;
+  border-radius: var(--r-pill);
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.fm-gauge-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: var(--r-pill);
+  transition: width var(--motion-fill);
+}
+
+.fm-gauge-fill-me {
+  background: var(--teal);
+  z-index: 2;
+  height: 14px;
+}
+
+.fm-gauge-fill-other {
+  background: var(--red-200);
+  z-index: 1;
+  height: 14px;
+}
+
+.fm-gauge-legend {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.fm-gauge-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-700);
+}
+
+.fm-gauge-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.fm-gauge-legend-me i {
+  background: var(--teal);
+}
+
+.fm-gauge-legend-other i {
+  background: var(--red);
+}
+
+.fm-gauge-caption {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--red-600);
+}
+
+/* ---------- 4.3 ParticipationBar ---------- */
+.fm-participation {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.fm-participation-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.fm-participation-head span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-700);
+}
+
+.fm-participation-head strong {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink-800);
+}
+
+.fm-participation-head strong em {
+  font-style: normal;
+  color: var(--ink-500);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.fm-participation-track {
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.fm-participation-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--teal);
+  transition: width var(--motion-fill);
+}
+
+.fm-participation-fomo .fm-participation-fill {
+  background: var(--red);
+}
+
+.fm-participation-fomo .fm-participation-head strong {
+  color: var(--red-600);
+}
+
+.fm-participation-avatars {
+  display: flex;
+}
+
+.fm-participation-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--teal-100);
+  border: 2px solid var(--surface);
+  margin-left: -8px;
+}
+
+.fm-participation-avatar:first-child {
+  margin-left: 0;
+}
+
+.fm-participation-avatar-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--surface-muted);
+  border: 2px solid var(--surface);
+  margin-left: -8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-500);
+}
+
+.fm-participation-fomo-label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--red-600);
+}
+
+/* ---------- 4.4 FomoCard ---------- */
+.fm-fomo-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--r-lg);
+  background: var(--red-50);
+  box-shadow: var(--shadow-1);
+}
+
+.fm-fomo-card p {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--red-700);
+}
+
+.fm-fomo-cta {
+  justify-self: start;
+  min-height: var(--tap-min);
+  padding: 0 var(--space-5);
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--red);
+  color: var(--surface);
+  font-size: 14px;
+  font-weight: 700;
+  transition: transform var(--motion-fast);
+}
+
+.fm-fomo-cta:active {
+  transform: scale(.97);
+}
+
+/* ---------- 4.5 MissionCard ---------- */
+.fm-mission-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.fm-mission-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  color: var(--ink-400);
+}
+
+.fm-mission-done .fm-mission-indicator {
+  border-color: var(--teal);
+  background: var(--teal);
+  color: var(--surface);
+}
+
+.fm-mission-in_progress .fm-mission-indicator {
+  border-color: var(--teal-100);
+}
+
+.fm-mission-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-300);
+}
+
+.fm-mission-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.fm-mission-body strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-800);
+  letter-spacing: -0.01em;
+}
+
+.fm-mission-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 12px;
+  color: var(--ink-500);
+}
+
+.fm-mission-points {
+  font-weight: 700;
+  color: var(--teal-700);
+}
+
+.fm-mission-points-earned {
+  animation: fm-point-pop var(--motion-count);
+}
+
+@keyframes fm-point-pop {
+  0% { transform: translateY(4px); opacity: 0; }
+  60% { transform: translateY(-2px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.fm-mission-cta {
+  min-height: var(--tap-min);
+  padding: 0 var(--space-5);
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--teal);
+  color: var(--surface);
+  font-size: 14px;
+  font-weight: 700;
+  transition: transform var(--motion-fast);
+}
+
+.fm-mission-cta:active {
+  transform: scale(.97);
+}
+
+.fm-mission-cta:disabled {
+  opacity: .6;
+}
+
+.fm-mission-done-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--teal-700);
+}
+
+/* ---------- 4.6 PointBadge / PointWallet ---------- */
+.fm-point-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px var(--space-2);
+  border-radius: var(--r-pill);
+  background: var(--teal-50);
+  color: var(--teal-700);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.fm-point-wallet {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px var(--space-3);
+  border: 1px solid var(--teal-100);
+  border-radius: var(--r-pill);
+  background: var(--teal-50);
+  color: var(--teal-700);
+}
+
+.fm-wallet-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.fm-wallet-copy small {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--teal-600);
+}
+
+.fm-wallet-copy b {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.fm-wallet-earned {
+  position: absolute;
+  top: -10px;
+  right: -6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--teal-700);
+  animation: fm-point-pop var(--motion-count);
+}
+
+/* ---------- 4.7 ReportCard ---------- */
+.fm-report-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+}
+
+.fm-report-badge {
+  justify-self: start;
+  padding: 2px var(--space-2);
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.fm-report-badge-teal {
+  background: var(--teal-50);
+  color: var(--teal-700);
+}
+
+.fm-report-badge-muted {
+  background: var(--surface-muted);
+  color: var(--ink-500);
+}
+
+.fm-report-badge-red {
+  background: var(--red-50);
+  color: var(--red-700);
+}
+
+.fm-report-locked-preview {
+  display: grid;
+  gap: var(--space-2);
+  filter: blur(3px);
+  opacity: .5;
+  pointer-events: none;
+}
+
+.fm-report-locked-preview span {
+  display: block;
+  height: 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface-muted);
+}
+
+.fm-report-locked-preview span:nth-child(2) {
+  width: 70%;
+}
+
+.fm-report-locked-preview span:nth-child(3) {
+  width: 45%;
+}
+
+.fm-report-lock-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-700);
+}
+
+.fm-report-lock-row strong {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.fm-report-unlock {
+  justify-self: start;
+  min-height: var(--tap-min);
+  padding: 0 var(--space-5);
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--teal);
+  color: var(--surface);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.fm-report-title {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-800);
+}
+
+.fm-report-stage {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.fm-report-stage-index {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--teal-50);
+  color: var(--teal-700);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.fm-report-stage-body {
+  display: grid;
+  gap: 4px;
+}
+
+.fm-report-stage-body small {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-500);
+}
+
+.fm-report-stage-body p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-700);
+}
+
+.fm-report-tag-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fm-report-tag-list li {
+  padding: 4px var(--space-2);
+  border-radius: var(--r-pill);
+  background: var(--surface-muted);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-700);
+}
+
+.fm-report-stage-four {
+  display: grid;
+  gap: 6px;
+}
+
+.fm-report-stage-four-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: var(--ink-700);
+}
+
+.fm-report-stage-four-row b {
+  color: var(--ink-800);
+  font-weight: 700;
+}
+
+.fm-report-next-cta {
+  justify-self: start;
+  min-height: var(--tap-min);
+  padding: 0 var(--space-5);
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--red);
+  color: var(--surface);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ---------- 4.8 CoachBubble ---------- */
+.fm-coach-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.fm-coach-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+
+.fm-coach-bubble {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--r-md);
+  border-top-left-radius: 4px;
+  background: var(--surface-muted);
+}
+
+.fm-coach-bubble p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-800);
+}
+
+.fm-coach-cta {
+  justify-self: start;
+  min-height: var(--tap-min);
+  padding: 0 var(--space-5);
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--teal);
+  color: var(--surface);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ---------- 4.9 ProfileCard (scope 강제) ---------- */
+.pf-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  text-align: left;
+}
+
+.pf-card-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pf-card-name {
+  display: grid;
+  min-width: 0;
+}
+
+.pf-card-name strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-800);
+}
+
+.pf-card-name span {
+  font-size: 12px;
+  color: var(--ink-500);
+}
+
+.pf-scope-badge {
+  padding: 2px var(--space-2);
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pf-scope-teal {
+  background: var(--teal-50);
+  color: var(--teal-700);
+}
+
+.pf-scope-muted {
+  background: var(--surface-muted);
+  color: var(--ink-500);
+}
+
+.pf-scope-red {
+  background: var(--red-50);
+  color: var(--red-700);
+}
+
+.pf-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pf-card-tags span {
+  padding: 4px var(--space-2);
+  border-radius: var(--r-pill);
+  background: var(--teal-50);
+  color: var(--teal-700);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pf-card-rank {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--ink-500);
+}
+
+.pf-card-rank strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--red-600);
+}
+
+.pf-card-amounts {
+  display: grid;
+  gap: 4px;
+}
+
+.pf-card-amount-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--ink-700);
+}
+
+.pf-card-amount-row b {
+  color: var(--ink-800);
+}
+
+.pf-card-summary {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.pf-card-summary span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pf-card-summary small {
+  font-size: 11px;
+  color: var(--ink-500);
+}
+
+.pf-card-summary b {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-800);
+}
+
+.pf-card-cashflow {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-500);
+}
+
+
+/* ---------- 홈/비교 화면에서 시그니처 컴포넌트를 조립할 때 쓰는 레이아웃 보조 클래스 ---------- */
+.home-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) 0 var(--space-1);
+}
+
+.home-budget-spent-note {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-500);
+}
+
+.compare-sample-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-500);
+}
+
+.fm-gauge-stack {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.fm-participation-stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.fm-mission-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.birthday-privacy-note {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-500);
+}
+
+.mission-loop-panel .mission-loop-row {
+  display: flex;
+  flex-wrap: wrap;
+  grid-template-columns: none;
+}
+
+.mission-loop-panel .mission-loop-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: auto;
+  width: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fm-gauge-fill,
+  .fm-participation-fill,
+  .fm-mission-points-earned,
+  .fm-wallet-earned {
+    animation: none !important;
+    transition: none !important;
+  }
+}

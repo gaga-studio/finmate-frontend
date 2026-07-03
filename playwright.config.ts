@@ -7,7 +7,7 @@ export default defineConfig({
     timeout: 7_000,
   },
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5174',
     viewport: { width: 390, height: 844 },
     trace: 'retain-on-failure',
   },

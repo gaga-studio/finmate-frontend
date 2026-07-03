@@ -1,10 +1,10 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type { AppItem, AppMetric } from './types'
 import type { Navigate } from './navigation'
 import { cleanProductCopy } from './productCopy'
 import { Chevron, IconBadge, ProgressLine, type IconName } from './uiPrimitives'
 
-type Tone = 'purple' | 'green' | 'warning' | 'danger' | 'muted' | string
+type Tone = 'teal' | 'red' | 'warning' | 'danger' | 'muted' | string
 
 export function ScreenLead({
   eyebrow,
@@ -74,7 +74,7 @@ export function FinanceMetricCard({ metric }: { metric: AppMetric }) {
       <strong>{cleanCaption(metric.value)}</strong>
       {metric.caption ? <small>{cleanCaption(metric.caption)}</small> : null}
       {typeof metric.progress === 'number' ? (
-        <ProgressLine value={metric.progress} tone={metric.tone === 'green' ? 'green' : 'purple'} />
+        <ProgressLine value={metric.progress} tone="teal" />
       ) : null}
     </div>
   )
@@ -86,7 +86,7 @@ export function SignalCard({
   value,
   caption,
   icon,
-  tone = 'purple',
+  tone = 'teal',
   progress,
   onClick,
 }: {
@@ -112,7 +112,7 @@ export function SignalCard({
       {value || typeof progress === 'number' ? (
         <div className="signal-card-value">
           {value ? <b>{cleanCaption(value)}</b> : null}
-          {typeof progress === 'number' ? <ProgressLine value={progress} tone={tone === 'green' ? 'green' : 'purple'} /> : null}
+          {typeof progress === 'number' ? <ProgressLine value={progress} tone="teal" /> : null}
         </div>
       ) : null}
     </>
@@ -151,7 +151,7 @@ export function ActivityRow({
   onClick?: () => void
 }) {
   const rowIcon = icon ?? item.icon ?? inferIcon(`${item.title} ${item.subtitle} ${item.caption}`)
-  const rowTone = tone ?? item.tone ?? 'purple'
+  const rowTone = tone ?? item.tone ?? 'teal'
   const click = onClick ?? (item.detailPath && navigate ? () => navigate(item.detailPath ?? '/') : undefined)
   const body = (
     <>
@@ -233,17 +233,38 @@ export function EmptyState({
 
 export function SegmentedControl({
   items,
+  activeId,
+  onChange,
+  ariaLabel = '화면 내용 전환',
+  panelPrefix = 'segmented',
 }: {
-  items: Array<{ id: string; label: string; value?: string; active?: boolean; onClick?: () => void }>
+  items: Array<{ id: string; label: string; value?: string; disabled?: boolean }>
+  activeId: string
+  onChange: (id: string) => void
+  ariaLabel?: string
+  panelPrefix?: string
 }) {
   return (
-    <div className="segmented-control">
-      {items.map((item) => (
-        <button className={item.active ? 'is-active' : ''} type="button" aria-pressed={item.active} onClick={item.onClick} key={item.id}>
-          <span>{item.label}</span>
-          {item.value ? <strong>{item.value}</strong> : null}
-        </button>
-      ))}
+    <div className="segmented-control" role="tablist" aria-label={ariaLabel}>
+      {items.map((item) => {
+        const active = item.id === activeId
+        return (
+          <button
+            className={active ? 'is-active' : ''}
+            type="button"
+            role="tab"
+            id={`${panelPrefix}-tab-${item.id}`}
+            aria-selected={active}
+            aria-controls={`${panelPrefix}-panel-${item.id}`}
+            disabled={item.disabled}
+            onClick={() => onChange(item.id)}
+            key={item.id}
+          >
+            <span>{item.label}</span>
+            {item.value ? <strong>{item.value}</strong> : null}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -313,7 +334,7 @@ export function RecommendationRow({
 
   return (
     <button className="recommendation-row" type="button" disabled={disabled} aria-busy={busy} onClick={onClick}>
-      <IconBadge icon={item.icon ?? 'profile'} tone={item.tone ?? 'purple'} />
+      <IconBadge icon={item.icon ?? 'profile'} tone={item.tone ?? 'teal'} />
       <span className="recommendation-row-copy">
         <strong>{cleanCaption(item.title)}</strong>
         <span>{item.value ? `${cleanCaption(item.value)} · ${meta}` : meta}</span>
@@ -338,75 +359,13 @@ export function ProfileSignalChips({
     <div className="compare-profile-signals" aria-label={label}>
       {signals.map((signal) => (
         <span className={signal.active ? 'active' : ''} key={signal.label}>
-          <IconBadge icon={signal.icon} tone={signal.active ? 'purple' : 'muted'} />
+          <IconBadge icon={signal.icon} tone={signal.active ? 'teal' : 'muted'} />
           <b>{signal.label}</b>
           <i aria-hidden="true" />
         </span>
       ))}
     </div>
   )
-}
-
-export function CompareReportRow({
-  item,
-  onClick,
-}: {
-  item: AppItem
-  onClick?: () => void
-}) {
-  const mine = numberFromItemData(item, 'mine') ?? numberFromItemData(item, 'progress') ?? 50
-  const group = numberFromItemData(item, 'group') ?? 0
-  const minePosition = clampPercent(numberFromItemData(item, 'minePosition') ?? mine)
-  const rawGroupPosition = numberFromItemData(item, 'groupPosition') ?? group
-  const groupPosition = clampPercent(rawGroupPosition === 0 ? 50 : rawGroupPosition)
-  const deltaLabel = stringFromItemData(item, 'deltaLabel') ?? '그룹과 비교 중이에요'
-  const deltaDirection = stringFromItemData(item, 'deltaDirection') ?? 'same'
-  const gaugeStyle = {
-    '--mine-position': `${minePosition}%`,
-    '--group-position': `${groupPosition}%`,
-    '--diff-start': `${Math.min(minePosition, groupPosition)}%`,
-    '--diff-width': `${Math.abs(minePosition - groupPosition)}%`,
-  } as CSSProperties
-
-  const body = (
-    <>
-      <IconBadge icon={item.icon ?? 'saving'} tone={item.tone ?? 'purple'} />
-      <div className="compare-report-copy">
-        <div className="compare-report-heading">
-          <div>
-            <strong>{cleanCaption(item.title)}</strong>
-            {item.subtitle ? <span>{cleanCaption(item.subtitle)}</span> : null}
-          </div>
-          <div className="compare-report-value">
-            {item.value ? <b>{cleanCaption(item.value)}</b> : null}
-            {item.caption ? <small>{cleanCaption(item.caption)}</small> : null}
-          </div>
-        </div>
-        <div className={`compare-report-gauge ${deltaDirection}`} style={gaugeStyle}>
-          <div className="compare-report-track" aria-label="그룹 평균 대비 내 위치">
-            <span className="compare-report-fill" />
-            <span className="compare-report-baseline"><b>그룹 평균</b></span>
-            <span className="compare-report-marker"><b>나</b></span>
-          </div>
-          <div className="compare-report-scale" aria-hidden="true">
-            <span>낮음</span>
-            <span>높음</span>
-          </div>
-        </div>
-        <span className={`compare-report-pill ${deltaDirection}`}>{cleanCaption(deltaLabel)}</span>
-      </div>
-    </>
-  )
-
-  if (onClick) {
-    return (
-      <button className="compare-report-row" type="button" onClick={onClick}>
-        {body}
-      </button>
-    )
-  }
-
-  return <article className="compare-report-row">{body}</article>
 }
 
 export function CompareActionPanel({
@@ -457,18 +416,4 @@ function inferIcon(text: string): string {
 
 function cleanCaption(caption: string) {
   return cleanProductCopy(caption)
-}
-
-function numberFromItemData(item: AppItem, key: string): number | null {
-  const value = item.data?.[key]
-  return typeof value === 'number' ? value : null
-}
-
-function stringFromItemData(item: AppItem, key: string): string | null {
-  const value = item.data?.[key]
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
-
-function clampPercent(value: number): number {
-  return Math.max(0, Math.min(100, value))
 }

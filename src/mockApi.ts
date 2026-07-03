@@ -52,6 +52,8 @@ function buildCompareProfiles(count: number): AppItem[] {
     const stockSignal = index % 3 === 0
     const savingSignal = index % 2 === 0
     const pensionSignal = index % 4 === 0
+    const foodSpend = 210000 + index * 8300
+    const cafeSpend = 42000 + index * 1900
     return {
       id: `compare-profile-${index + 1}`,
       title: names[index % names.length],
@@ -59,7 +61,7 @@ function buildCompareProfiles(count: number): AppItem[] {
       value: undefined,
       caption: undefined,
       icon: 'profile',
-      tone: 'purple',
+      tone: 'teal',
       detailPath: null,
       data: {
         ageBand: '20대 후반',
@@ -70,10 +72,24 @@ function buildCompareProfiles(count: number): AppItem[] {
         stockSignal,
         savingSignal,
         pensionSignal,
+        // anonymous scope 전용 — 카테고리 단위 정확 금액 (가맹점 단위 절대 금지)
+        categorySpending: [
+          { category: '식비', amountLabel: `${foodSpend.toLocaleString('ko-KR')}원` },
+          { category: '카페·간식', amountLabel: `${cafeSpend.toLocaleString('ko-KR')}원` },
+        ],
+        cashflowPattern: '월급날 25일 · 급여 직후 3일 지출 집중',
+        savingsLabel: savingSignal ? `${(320 + index * 12).toLocaleString('ko-KR')}만원` : null,
+        productActions: [
+          stockSignal ? 'ETF 투자중' : '',
+          savingSignal ? '청년미래적금 가입' : '',
+          pensionSignal ? '연금 준비중' : '',
+        ].filter(Boolean),
       },
     }
   })
 }
+
+const friendProductActionPool = ['청약 시작', '청년미래적금 가입', 'ETF 경험 있음', '비상금 통장 개설', '연금 준비중', '적금 자동이체 시작']
 
 function buildPeople(count: number, relation: 'following' | 'followers'): AppItem[] {
   const names = ['민지', '도윤', '서연', '지호', '하은', '유준', '채원', '태윤']
@@ -84,9 +100,13 @@ function buildPeople(count: number, relation: 'following' | 'followers'): AppIte
     value: `${(index + 1) * 2}개 공개`,
     caption: null,
     icon: 'profile',
-    tone: 'purple',
+    tone: 'teal',
     detailPath: null,
-    data: { publicSignalCount: (index + 1) * 2 },
+    // follow scope: 금액·시점은 절대 숨기고, "뭘 하는지"만 공개(UI.md 6장)
+    data: {
+      publicSignalCount: (index + 1) * 2,
+      productActions: [friendProductActionPool[index % friendProductActionPool.length], friendProductActionPool[(index + 2) % friendProductActionPool.length]],
+    },
   }))
 }
 
@@ -105,7 +125,7 @@ function buildActivity(count: number): AppItem[] {
     value: null,
     caption: activities[index % activities.length].caption,
     icon: null,
-    tone: 'purple',
+    tone: 'teal',
     detailPath: null,
     data: null,
   }))
@@ -120,7 +140,7 @@ function buildParticipants(count: number): AppItem[] {
     value: null,
     caption: '참여 완료',
     icon: 'profile',
-    tone: 'green',
+    tone: 'teal',
     detailPath: null,
     data: null,
   }))
@@ -136,30 +156,36 @@ function homeScreen(): AppScreenResponse {
       subtitle: '진행 중',
       detailPath: '/missions/mission-lunch',
       metrics: [{ label: '진행률', value: '66%', progress: 66, caption: '2/3 완료' }],
-      data: { todayReason: '점심 지출을 기록하면 오늘 미션이 완료돼요.', statusLabel: '진행 중', evaluationStatus: 'IN_PROGRESS' },
+      data: {
+        todayReason: '점심 지출을 기록하면 오늘 미션이 완료돼요.',
+        statusLabel: '진행 중',
+        evaluationStatus: 'IN_PROGRESS',
+        rewardPoints: 80,
+      },
     },
     {
       id: 'budget-today',
       kind: 'budget',
-      title: '오늘의 예산',
+      title: '오늘 예산',
       detailPath: '/records',
       metrics: [
         { label: '오늘 예산', value: '32,000원' },
         { label: '사용 금액', value: '19,600원' },
         { label: '남은 예산', value: '12,400원', progress: 61 },
       ],
-      data: { progress: 61 },
+      data: { todayBudget: 32000, todaySpent: 19600, remaining: 12400, progress: 61 },
     },
     {
       id: 'spending-summary',
       kind: 'spendingGrid',
-      title: '지출 요약',
+      title: '오늘 지출',
       items: [
         { id: 'spend-food', title: '식비', value: '12,000원', caption: '점심/저녁', icon: 'spend', tone: 'warning', detailPath: '/records/2026-06-12' },
-        { id: 'spend-cafe', title: '카페', value: '4,600원', caption: '아메리카노 등', icon: 'more', tone: 'purple', detailPath: '/records/2026-06-12' },
+        { id: 'spend-cafe', title: '카페', value: '4,600원', caption: '아메리카노 등', icon: 'more', tone: 'teal', detailPath: '/records/2026-06-12' },
         { id: 'spend-transport', title: '교통', value: '3,000원', caption: '버스/지하철', icon: 'spark', tone: 'muted', detailPath: '/records/2026-06-12' },
         { id: 'spend-etc', title: '기타', value: '0원', caption: '기록 없음', icon: 'more', tone: 'muted', detailPath: '/records/2026-06-12' },
       ],
+      data: { todaySpent: 19600 },
     },
     {
       id: 'asset-status',
@@ -168,19 +194,16 @@ function homeScreen(): AppScreenResponse {
       subtitle: '최근 7일 추세',
       detailPath: '/profile',
       metrics: [{ label: '총 자산', value: '8,420,000원' }],
-      data: { sparkline: [812, 815, 819, 817, 822, 838, 842] },
+      data: { sparkline: [812, 815, 819, 817, 822, 838, 842], netWorth: 8420000 },
     },
     {
       id: 'following-summary',
       kind: 'signalGrid',
       title: '팔로잉 금융 근황',
-      subtitle: '친구들의 공개된 금융 활동이에요.',
-      metrics: [
-        { label: '주식 시작', value: '3명', tone: 'purple' },
-        { label: '적금 가입', value: '5명', tone: 'green' },
-        { label: '펀드 투자', value: '2명', tone: 'purple' },
-        { label: '저축 목표 달성', value: '4명', tone: 'green' },
-      ],
+      subtitle: '나만 안 하고 있는 건 아닌지 확인해보세요.',
+      detailPath: '/compare',
+      metrics: [{ label: '이번 주 비상금 미션 완료', value: '3명', tone: 'red' }],
+      data: { participants: 3, total: 4, fomoLabel: '친구들은 벌써 비상금을 시작했어요' },
     },
     {
       id: 'birthday-alert',
@@ -210,16 +233,9 @@ function homeDetailScreen(detail: string): AppScreenResponse {
 function compareScreen(): AppScreenResponse {
   const sections: AppSection[] = [
     {
-      id: 'compare-prompt',
-      kind: 'comparePrompt',
-      title: '나와 비슷한 또래와 비교해보세요',
-      subtitle: '조건을 고르거나 추천 그룹으로 바로 비교할 수 있어요.',
-      detailPath: '/compare/filter',
-    },
-    {
       id: 'compare-recommended',
       kind: 'compareGroupRail',
-      title: 'AI 추천 비교 그룹',
+      title: '① 그룹 비교',
       subtitle: '내 온보딩 정보를 기반으로 추천된 그룹이에요.',
       detailPath: '/compare/filter',
       items: [
@@ -230,7 +246,7 @@ function compareScreen(): AppScreenResponse {
           value: '42명',
           caption: null,
           icon: 'stocks',
-          tone: 'purple',
+          tone: 'teal',
           detailPath: '/compare/filter',
           data: {
             ageBand: '20대 초반',
@@ -249,7 +265,7 @@ function compareScreen(): AppScreenResponse {
           value: '58명',
           caption: null,
           icon: 'saving',
-          tone: 'green',
+          tone: 'teal',
           detailPath: '/compare/filter',
           data: {
             ageBand: '전체',
@@ -264,14 +280,31 @@ function compareScreen(): AppScreenResponse {
       ],
     },
     {
-      id: 'compare-saved',
-      kind: 'savedCompareGroups',
-      title: '저장된 비교',
-      subtitle: '최근에 비교했던 그룹이에요.',
+      id: 'compare-prompt',
+      kind: 'comparePrompt',
+      title: '② 필터링 조회',
+      subtitle: '나이·소득·직업·지역·소비 성향·자산 규모를 직접 골라 익명 프로필을 찾아보세요.',
       detailPath: '/compare/filter',
+    },
+    {
+      id: 'compare-friend-signals',
+      kind: 'friendSignals',
+      title: '③ 친구 근황',
+      subtitle: '친구 50명 중 몇 명이 시작했는지 "했다/안 했다" 비율로만 보여드려요.',
+      detailPath: '/profile/following',
       items: [
-        { id: 'saved-1', title: '수도권 20대 비교', subtitle: '3일 전', value: '42명', caption: null, icon: 'profile', tone: 'purple', detailPath: '/compare/results/cmp-001' },
+        { id: 'signal-saving', title: '적금', value: null, caption: null, icon: 'saving', tone: 'teal', detailPath: null, data: { participants: 32, total: 50 } },
+        { id: 'signal-jubtyak', title: '청년미래적금(청약)', value: null, caption: null, icon: 'fund', tone: 'teal', detailPath: null, data: { participants: 30, total: 50 } },
+        { id: 'signal-stock', title: '주식', value: null, caption: null, icon: 'stocks', tone: 'teal', detailPath: null, data: { participants: 14, total: 50 } },
+        { id: 'signal-isa', title: 'ISA', value: null, caption: null, icon: 'chart', tone: 'teal', detailPath: null, data: { participants: 9, total: 50 } },
+        { id: 'signal-pension', title: '연금', value: null, caption: null, icon: 'pension', tone: 'teal', detailPath: null, data: { participants: 5, total: 50 } },
       ],
+    },
+    {
+      id: 'follow-group-report',
+      kind: 'report',
+      title: '팔로우 그룹 리포트',
+      data: { pointCost: 20, reportKind: 'follow-group' },
     },
   ]
   return screen({ screenId: 'compare', title: '비교', tab: 'compare', sections })
@@ -320,17 +353,19 @@ function compareResultScreen(comparisonId: string): AppScreenResponse {
       kind: 'scoreGrid',
       title: '금융 점수 비교',
       metrics: [
-        { label: '내 점수', value: '78점', tone: 'purple' },
+        { label: '내 점수', value: '78점', tone: 'teal' },
         { label: '그룹 평균', value: '71점', tone: 'muted' },
       ],
+      data: { meScore: 78, groupScore: 71 },
     },
     {
       id: 'compare-bars',
       kind: 'compareBars',
       title: '항목별 비교',
       items: [
-        { id: 'bar-saving', title: '저축률', subtitle: '나 32% · 그룹 평균 25%', value: '+7%p', caption: null, icon: 'saving', tone: 'green', detailPath: null, data: null },
-        { id: 'bar-spend', title: '소비 비중', subtitle: '나 48% · 그룹 평균 55%', value: '-7%p', caption: null, icon: 'spend', tone: 'purple', detailPath: null, data: null },
+        { id: 'bar-food', title: '식비', subtitle: null, value: null, caption: null, icon: 'spend', tone: 'teal', detailPath: null, data: { mine: 252334, group: 320000, unit: '원' } },
+        { id: 'bar-saving', title: '저축률', subtitle: null, value: null, caption: null, icon: 'saving', tone: 'teal', detailPath: null, data: { mine: 32, group: 25, unit: '%' } },
+        { id: 'bar-spend', title: '소비 비중', subtitle: null, value: null, caption: null, icon: 'spend', tone: 'teal', detailPath: null, data: { mine: 48, group: 55, unit: '%' } },
       ],
     },
     {
@@ -339,6 +374,12 @@ function compareResultScreen(comparisonId: string): AppScreenResponse {
       title: '그룹 구성원',
       items: buildCompareProfiles(12),
       data: { pageSize: 5, initialVisible: 5 },
+    },
+    {
+      id: 'group-report',
+      kind: 'report',
+      title: '다른 그룹 리포트',
+      data: { pointCost: 30, reportKind: 'other-group' },
     },
   ]
   return screen({ screenId: `compare:result:${comparisonId}`, title: '비교 결과', tab: 'compare', sections, meta: { memberCount: 42 } })
@@ -354,9 +395,9 @@ function compareCoachScreen(comparisonId: string): AppScreenResponse {
         id: 'coach-summary',
         kind: 'coach',
         title: 'AI 코치 해석',
-        subtitle: '저축률이 그룹 평균보다 높아요! 이 흐름을 유지해보세요.',
-        metrics: [{ label: '코칭 포인트', value: '저축 루틴 유지', caption: '다음 3일 동안 이어가면 배지를 받아요', progress: 70 }],
-        actions: [{ label: '홈으로', path: '/home', method: 'GET', tone: 'primary' }],
+        subtitle: '또래보다 카페 소비가 높아요. 이번 주 "카페 1만원 줄이기"부터 시작해봐요.',
+        metrics: [{ label: '코칭 포인트', value: '카페 지출 줄이기', caption: '다음 3일 동안 이어가면 배지를 받아요', progress: 70 }],
+        actions: [{ label: '미션 시작', path: '/missions/mission-water', method: 'GET', tone: 'primary' }],
       },
     ],
   })
@@ -371,15 +412,20 @@ function missionsScreen(): AppScreenResponse {
       subtitle: '진행 중',
       detailPath: '/missions/mission-lunch',
       metrics: [{ label: '진행률', value: '66%', progress: 66, caption: '2/3 완료' }],
-      data: { todayReason: '점심 지출을 기록하면 오늘 미션이 완료돼요.', statusLabel: '진행 중', evaluationStatus: 'IN_PROGRESS' },
+      data: { todayReason: '점심 지출을 기록하면 오늘 미션이 완료돼요.', statusLabel: '진행 중', evaluationStatus: 'IN_PROGRESS', rewardPoints: 40 },
       actions: [{ label: '미션 추가', path: '/missions/add', method: 'GET', tone: 'secondary' }],
+    },
+    {
+      id: 'mission-loop',
+      kind: 'loop',
+      title: '미션 루프',
     },
     {
       id: 'active',
       kind: 'list',
       title: '진행 중',
       items: [
-        { id: 'mission-water', title: '커피 대신 물 마시기', subtitle: '카페 지출 줄이기', value: null, caption: '+50P', icon: 'saving', tone: 'green', detailPath: '/missions/mission-water', data: null },
+        { id: 'mission-water', title: '커피 대신 물 마시기', subtitle: '카페 지출 줄이기', value: null, caption: '+50P', icon: 'saving', tone: 'teal', detailPath: '/missions/mission-water', data: null },
       ],
     },
     {
@@ -387,7 +433,7 @@ function missionsScreen(): AppScreenResponse {
       kind: 'list',
       title: '완료',
       items: [
-        { id: 'mission-record', title: '하루 지출 기록하기', subtitle: '기록 습관 만들기', value: null, caption: '+30P', icon: 'check-square', tone: 'purple', detailPath: '/missions/mission-record', data: null },
+        { id: 'mission-record', title: '하루 지출 기록하기', subtitle: '기록 습관 만들기', value: null, caption: '+30P', icon: 'check-square', tone: 'teal', detailPath: '/missions/mission-record', data: null },
       ],
     },
   ]
@@ -405,9 +451,9 @@ function missionAddScreen(): AppScreenResponse {
         kind: 'list',
         title: '추천 미션 추가',
         items: [
-          { id: 'tmpl-1', title: '커피 대신 물 마시기', subtitle: '카페 지출 줄이기', value: null, caption: '+50P', icon: 'saving', tone: 'green', detailPath: null, data: { templateId: 'tmpl-water' } },
-          { id: 'tmpl-2', title: '하루 지출 기록하기', subtitle: '기록 습관 만들기', value: null, caption: '+30P', icon: 'check-square', tone: 'purple', detailPath: null, data: { templateId: 'tmpl-record' } },
-          { id: 'tmpl-3', title: '비상금 5만원 모으기', subtitle: '저축 루틴 시작', value: null, caption: '+80P', icon: 'saving', tone: 'green', detailPath: null, data: { templateId: 'tmpl-emergency' } },
+          { id: 'tmpl-1', title: '커피 대신 물 마시기', subtitle: '카페 지출 줄이기', value: null, caption: '+50P', icon: 'saving', tone: 'teal', detailPath: null, data: { templateId: 'tmpl-water' } },
+          { id: 'tmpl-2', title: '하루 지출 기록하기', subtitle: '기록 습관 만들기', value: null, caption: '+30P', icon: 'check-square', tone: 'teal', detailPath: null, data: { templateId: 'tmpl-record' } },
+          { id: 'tmpl-3', title: '비상금 5만원 모으기', subtitle: '저축 루틴 시작', value: null, caption: '+80P', icon: 'saving', tone: 'teal', detailPath: null, data: { templateId: 'tmpl-emergency' } },
         ],
       },
     ],
@@ -465,8 +511,8 @@ function recordsScreen(): AppScreenResponse {
       kind: 'list',
       title: '포인트 내역',
       items: [
-        { id: 'point-1', title: '미션 완료 보상', subtitle: '커피 대신 물 마시기', value: '+50P', caption: '06-11', icon: 'saving', tone: 'green', detailPath: null, data: null },
-        { id: 'point-2', title: '기록 완료 보상', subtitle: '하루 지출 기록하기', value: '+30P', caption: '06-10', icon: 'check-square', tone: 'purple', detailPath: null, data: null },
+        { id: 'point-1', title: '미션 완료 보상', subtitle: '커피 대신 물 마시기', value: '+50P', caption: '06-11', icon: 'saving', tone: 'teal', detailPath: null, data: null },
+        { id: 'point-2', title: '기록 완료 보상', subtitle: '하루 지출 기록하기', value: '+30P', caption: '06-10', icon: 'check-square', tone: 'teal', detailPath: null, data: null },
       ],
     },
   ]
@@ -492,7 +538,7 @@ function recordDetailScreen(date: string): AppScreenResponse {
       title: '지출 기록',
       items: [
         { id: 'expense-1', title: '점심', value: '-9,000원', caption: '47%', icon: 'spend', tone: 'warning', detailPath: null, data: null },
-        { id: 'expense-2', title: '카페', value: '-4,600원', caption: '24%', icon: 'more', tone: 'purple', detailPath: null, data: null },
+        { id: 'expense-2', title: '카페', value: '-4,600원', caption: '24%', icon: 'more', tone: 'teal', detailPath: null, data: null },
         { id: 'expense-3', title: '저녁', value: '-6,000원', caption: '29%', icon: 'spend', tone: 'warning', detailPath: null, data: null },
       ],
     },
@@ -501,7 +547,7 @@ function recordDetailScreen(date: string): AppScreenResponse {
       kind: 'list',
       title: '미션 기록',
       items: [
-        { id: 'mission-log-1', title: '점심 지출 기록 완료', subtitle: '오늘의 미션', value: null, caption: '+20P', icon: 'check-square', tone: 'purple', detailPath: null, data: null },
+        { id: 'mission-log-1', title: '점심 지출 기록 완료', subtitle: '오늘의 미션', value: null, caption: '+20P', icon: 'check-square', tone: 'teal', detailPath: null, data: null },
       ],
     },
   ]
@@ -543,9 +589,9 @@ function profileScreen(): AppScreenResponse {
       kind: 'distribution',
       title: '친구들의 금융 신호 분포',
       items: [
-        { id: 'signal-stock', title: '주식', value: '38%', caption: null, icon: 'stocks', tone: 'purple', detailPath: null, data: { progress: 38 } },
-        { id: 'signal-saving', title: '적금', value: '54%', caption: null, icon: 'saving', tone: 'green', detailPath: null, data: { progress: 54 } },
-        { id: 'signal-pension', title: '연금', value: '21%', caption: null, icon: 'pension', tone: 'purple', detailPath: null, data: { progress: 21 } },
+        { id: 'signal-stock', title: '주식', value: '38%', caption: null, icon: 'stocks', tone: 'teal', detailPath: null, data: { progress: 38 } },
+        { id: 'signal-saving', title: '적금', value: '54%', caption: null, icon: 'saving', tone: 'teal', detailPath: null, data: { progress: 54 } },
+        { id: 'signal-pension', title: '연금', value: '21%', caption: null, icon: 'pension', tone: 'teal', detailPath: null, data: { progress: 21 } },
       ],
     },
     { id: 'following-top', kind: 'rankList', title: 'TOP 5 활동', items: buildActivity(5) },
@@ -631,6 +677,7 @@ function birthdayFlowScreen(birthdayId: string): AppScreenResponse {
           { label: '모금 현황', value: '62%', progress: 62 },
           { label: '참여 인원', value: '8명' },
         ],
+        data: { collectedAmount: 62000, goalAmount: 100000, participants: 8, totalFriends: 15 },
         items: buildParticipants(5),
         actions: [{ label: '참여하기', path: '/birthday-funds/fund-001/contribute', method: 'GET', tone: 'primary' }],
       },
@@ -704,6 +751,7 @@ function birthdayStatusScreen(): AppScreenResponse {
           { label: '모금 현황', value: '45%', progress: 45 },
           { label: '참여 인원', value: '5명' },
         ],
+        data: { collectedAmount: 45000, goalAmount: 100000, participants: 5, totalFriends: 15 },
         items: buildParticipants(5),
       },
     ],

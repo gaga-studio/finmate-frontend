@@ -6,6 +6,7 @@ import { numberFromData } from './screenData'
 import { clearSession } from './session'
 import type { AppAction, AppItem, AppMetric, AppSection } from './types'
 import { Chevron, IconBadge, ProgressLine, type IconName } from './uiPrimitives'
+import { ProfileCard } from './components'
 
 type ProfileSectionProps = {
   section: AppSection
@@ -57,7 +58,7 @@ export function ProfileRelationshipSummary({ section, navigate }: ProfileSection
     <article className="profile-component profile-relationship-card profile-trust-card">
       <div className="profile-relationship-main">
         <span className="profile-status-pill">
-          <IconBadge icon="check-square" tone="green" />
+          <IconBadge icon="check-square" tone="teal" />
           공개 미리보기 안전
         </span>
         <strong>친구에게 보이는 내 공개 상태</strong>
@@ -79,13 +80,13 @@ export function ProfileRelationshipSummary({ section, navigate }: ProfileSection
       </button>
       <div className="profile-relationship-metrics profile-social-strip" aria-label="관계 요약">
         {followingMetric ? (
-          <span className="profile-relationship-metric" data-tone={followingMetric.tone ?? 'purple'}>
+          <span className="profile-relationship-metric" data-tone={followingMetric.tone ?? 'teal'}>
             <small>{cleanCopy(followingMetric.label)}</small>
             <b>{cleanCopy(followingMetric.value)}</b>
           </span>
         ) : null}
         {followerMetric ? (
-          <span className="profile-relationship-metric" data-tone={followerMetric.tone ?? 'green'}>
+          <span className="profile-relationship-metric" data-tone={followerMetric.tone ?? 'teal'}>
             <small>{cleanCopy(followerMetric.label)}</small>
             <b>{cleanCopy(followerMetric.value)}</b>
           </span>
@@ -140,7 +141,7 @@ export function ProfileSignalDeck({ section, navigate }: ProfileSectionProps) {
       ) : isDistribution ? (
         <>
           <div className="profile-insight-summary">
-            <IconBadge icon="chart" tone="green" />
+            <IconBadge icon="chart" tone="teal" />
             <div>
               <strong>{activeSignals.length}개 공개 신호가 확인됐어요</strong>
               <span>친구들의 정확한 금액이 아니라 시작한 행동 여부만 요약합니다.</span>
@@ -215,7 +216,7 @@ export function ProfileAccountPanel({ section, navigate }: ProfileSectionProps) 
       <ProfileSectionHeader section={section} navigate={navigate} />
       {section.subtitle ? <p className="profile-section-subtitle">{cleanCopy(section.subtitle)}</p> : null}
       <div className="profile-wallet-strip">
-        <IconBadge icon="spark" tone="purple" />
+        <IconBadge icon="spark" tone="teal" />
         <div>
           <span>{cleanCopy(section.metrics?.[0]?.label ?? '포인트')}</span>
           <strong>{cleanCopy(section.metrics?.[0]?.value ?? '0P')}</strong>
@@ -273,30 +274,16 @@ function profileSectionEyebrow(section: AppSection): string {
 }
 
 function ProfilePersonRow({ item, navigate }: { item: AppItem; navigate: Navigate }) {
-  const signalCount = numberFromData(item.data, 'publicSignalCount') ?? 0
-  const rowBody = (
-    <>
-      <IconBadge icon={toProfileIcon(item.icon, item.title)} tone={item.tone ?? 'purple'} />
-      <div className="profile-person-copy">
-        <strong>{cleanCopy(item.title)}</strong>
-        {item.subtitle ? <small>{cleanCopy(item.subtitle)}</small> : null}
-      </div>
-      <span className="profile-person-status">
-        <b>{item.value ? cleanCopy(item.value) : signalCount > 0 ? `${signalCount}개 공개` : '공개 신호 대기'}</b>
-        {item.caption ? <em>{cleanCopy(item.caption)}</em> : null}
-      </span>
-    </>
+  // 실친(팔로우/팔로워)은 UI.md 6장 `follow` scope — 금액·시점은 렌더 자체를 하지 않는다.
+  const productActions = Array.isArray(item.data?.productActions) ? (item.data?.productActions as string[]) : null
+
+  return (
+    <ProfileCard
+      scope="follow"
+      facts={{ displayName: cleanCopy(item.title), productActions }}
+      onClick={item.detailPath ? () => navigate(item.detailPath ?? '/profile') : undefined}
+    />
   )
-
-  if (item.detailPath) {
-    return (
-      <button className="profile-person-row" type="button" onClick={() => navigate(item.detailPath ?? '/profile')}>
-        {rowBody}
-      </button>
-    )
-  }
-
-  return <article className="profile-person-row">{rowBody}</article>
 }
 
 function ProfileSignalCard({ signal, navigate }: { signal: ProfileSignal; navigate: Navigate }) {
@@ -314,7 +301,7 @@ function ProfileSignalCard({ signal, navigate }: { signal: ProfileSignal; naviga
         {signal.caption ? <span>{cleanCopy(signal.caption)}</span> : null}
       </div>
       <div className="profile-signal-progress">
-        <ProgressLine value={signal.progress} tone={signal.tone === 'green' ? 'green' : 'purple'} />
+        <ProgressLine value={signal.progress} tone="teal" />
       </div>
     </>
   )
@@ -332,7 +319,7 @@ function ProfileSignalCard({ signal, navigate }: { signal: ProfileSignal; naviga
 
 function ProfileActivityRow({ item, rank, navigate }: { item: AppItem; rank: number | null; navigate: Navigate }) {
   const icon = toProfileIcon(item.icon, `${item.title} ${item.subtitle} ${item.caption}`)
-  const tone = item.tone ?? 'purple'
+  const tone = item.tone ?? 'teal'
   const activityLabel = activityTypeLabel(item.caption, item.subtitle)
   const rowBody = (
     <>
@@ -390,7 +377,7 @@ function profileSignals(section: AppSection): ProfileSignal[] {
       value: item.value ? cleanCopy(item.value) : item.value,
       caption: item.caption ? cleanCopy(item.caption) : item.caption,
       icon: toProfileIcon(item.icon, item.title),
-      tone: item.tone ?? 'purple',
+      tone: item.tone ?? 'teal',
       progress: clampPercent(numberFromData(item.data, 'mine') ?? numberFromData(item.data, 'progress') ?? percentFromText(item.caption) ?? 0),
       detailPath: item.detailPath,
     }))
@@ -406,7 +393,7 @@ function metricSignal(metric: AppMetric): ProfileSignal {
     value: cleanCopy(metric.value),
     caption: metric.caption ? cleanCopy(metric.caption) : metric.caption,
     icon: toProfileIcon(null, metric.label),
-    tone: metric.tone ?? 'purple',
+    tone: metric.tone ?? 'teal',
     progress: clampPercent(metric.progress ?? percentFromText(metric.caption) ?? 0),
   }
 }

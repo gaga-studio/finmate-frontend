@@ -5,7 +5,9 @@ import type { Navigate } from './navigation'
 import type { AppCompareSearchRequest, AppItem, AppScreenResponse } from './types'
 import { Chevron, IconBadge, IconButton, StatusBar } from './uiPrimitives'
 import { ErrorScreen, LoadingScreen } from './screenRenderer'
-import { BottomSheet, EmptyState, ProfileSignalChips, ScreenLead, SectionHeading } from './AppComponents'
+import { BottomSheet, EmptyState, ScreenLead, SectionHeading } from './AppComponents'
+import { ProfileCard } from './components'
+import { profileFactsFromItem } from './profileFacts'
 
 type FilterKey = 'jobCategory' | 'incomeBand' | 'ageBand' | 'moneyStyle' | 'area' | 'householdType' | 'assetRange'
 
@@ -37,7 +39,7 @@ const fallbackFilters: AppCompareSearchRequest = {
 const MIN_RECOMMENDED_SAMPLE_SIZE = 5
 const sensitiveFilterKeys: FilterKey[] = ['incomeBand', 'assetRange']
 
-export function CompareFilterPage({ navigate }: { navigate: Navigate }) {
+export function CompareFilterPage({ navigate, embedded = false }: { navigate: Navigate; embedded?: boolean }) {
   const [state, setState] = useState<LoadState>({ status: 'loading' })
   const [activeFilter, setActiveFilter] = useState<FilterKey | null>(null)
   const [searchingKey, setSearchingKey] = useState<FilterKey | null>(null)
@@ -81,10 +83,22 @@ export function CompareFilterPage({ navigate }: { navigate: Navigate }) {
   }, [activeFilter])
 
   if (state.status === 'loading') {
-    return <LoadingScreen />
+    return embedded
+      ? (
+        <div className="compare-filter-embedded">
+          <EmptyState title="필터를 불러오는 중이에요" subtitle="조건과 공개 프로필을 준비하고 있어요." icon="spark" />
+        </div>
+      )
+      : <LoadingScreen />
   }
   if (state.status === 'error') {
-    return <ErrorScreen message={state.message} navigate={navigate} />
+    return embedded
+      ? (
+        <div className="compare-filter-embedded">
+          <EmptyState title="필터를 불러오지 못했어요" subtitle={state.message} icon="search" />
+        </div>
+      )
+      : <ErrorScreen message={state.message} navigate={navigate} />
   }
 
   const resultCount = numberFromMeta(state.screen.meta.resultCount)
@@ -134,26 +148,38 @@ export function CompareFilterPage({ navigate }: { navigate: Navigate }) {
   }
 
   return (
-    <div className="screen screen-compare screen-compare-filter">
-      <StatusBar time={state.screen.statusBarTime} />
-      <header className="app-header">
-        <div className="header-side">
-          <IconButton icon="back" label="뒤로" onClick={() => navigate('/compare')} />
-        </div>
-        <h1>필터링 조회</h1>
-        <div className="header-side right">
-          <IconButton icon="sliders" label="필터" />
-        </div>
-      </header>
+    <div className={embedded ? 'compare-filter-embedded' : 'screen screen-compare screen-compare-filter'}>
+      {embedded ? null : (
+        <>
+          <StatusBar time={state.screen.statusBarTime} />
+          <header className="app-header">
+            <div className="header-side">
+              <IconButton icon="back" label="뒤로" onClick={() => navigate('/compare')} />
+            </div>
+            <h1>필터링 조회</h1>
+            <div className="header-side right">
+              <IconButton icon="sliders" label="필터" />
+            </div>
+          </header>
+        </>
+      )}
 
-      <ScreenLead eyebrow="직접 비교" title="비교할 그룹을 정교하게 고르세요" subtitle="조건을 하나씩 조정하면 공개 금융 루틴이 비슷한 사람만 모아볼 수 있어요.">
-        <div className="compare-filter-summary">
-          <span>{selectedFilters.length === 0 ? '전체 조건' : `${selectedFilters.length}개 조건 적용`}</span>
-          <strong>{resultCount}명</strong>
-        </div>
-      </ScreenLead>
+      {embedded ? null : (
+        <ScreenLead eyebrow="직접 비교" title="비교할 그룹을 정교하게 고르세요" subtitle="조건을 하나씩 조정하면 공개 금융 루틴이 비슷한 사람만 모아볼 수 있어요.">
+          <div className="compare-filter-summary">
+            <span>{selectedFilters.length === 0 ? '전체 조건' : `${selectedFilters.length}개 조건 적용`}</span>
+            <strong>{resultCount}명</strong>
+          </div>
+        </ScreenLead>
+      )}
 
       <section className="compare-filter-panel" aria-label="비교 필터">
+        {embedded ? (
+          <div className="compare-filter-summary">
+            <span>{selectedFilters.length === 0 ? '전체 조건' : `${selectedFilters.length}개 조건 적용`}</span>
+            <strong>{resultCount}명</strong>
+          </div>
+        ) : null}
         <SectionHeading eyebrow="필터" title="비교 조건" subtitle="필요한 기준만 골라서 결과를 좁혀요." />
         <div className="compare-filter-chips">
           {filterOrder.map((filter) => (
@@ -257,7 +283,7 @@ function FilterBottomSheet({
               key={value}
             >
               <span>{value}</span>
-              {selected ? <IconBadge icon="check" tone="purple" /> : null}
+              {selected ? <IconBadge icon="check" tone="teal" /> : null}
             </button>
           )
         })}
@@ -267,53 +293,7 @@ function FilterBottomSheet({
 }
 
 function CompareProfileCard({ item }: { item: AppItem }) {
-  const stock = item.data?.stockSignal === true
-  const saving = item.data?.savingSignal === true
-  const pension = item.data?.pensionSignal === true
-  const ageBand = dataText(item, 'ageBand', '나이 미공개')
-  const jobCategory = dataText(item, 'jobCategory', '직업 미공개')
-  const incomeBand = dataText(item, 'incomeBand', '미공개')
-  const area = dataText(item, 'area', '지역 미공개')
-  const moneyStyle = dataText(item, 'moneyStyle', '성향 미공개')
-  const tags = [
-    moneyStyle !== '성향 미공개' ? moneyStyle : '',
-    stock ? '투자중' : '',
-    saving ? '저축중' : '',
-    pension ? '연금준비' : '',
-  ].filter(Boolean).slice(0, 2)
-
-  return (
-    <article className="compare-profile-card compare-filter-profile-card">
-      <div className="compare-profile-avatar" aria-hidden="true">
-        <IconBadge icon="profile" tone="purple" />
-      </div>
-      <div className="compare-profile-main">
-        <div className="compare-profile-name">
-          <strong>{item.title}</strong>
-          <span>{ageBand}</span>
-        </div>
-        <p>{jobCategory} · 연소득 {incomeBand}</p>
-        <p>{area} · {moneyStyle}</p>
-        {tags.length > 0 ? (
-          <div className="compare-profile-tags" aria-label="프로필 태그">
-            {tags.map((tag) => <span key={tag}>#{tag}</span>)}
-          </div>
-        ) : null}
-      </div>
-      <ProfileSignalChips
-        signals={[
-          { active: stock, label: '주식', icon: 'stocks' },
-          { active: saving, label: '적금', icon: 'saving' },
-          { active: pension, label: '연금', icon: 'pension' },
-        ]}
-      />
-    </article>
-  )
-}
-
-function dataText(item: AppItem, key: string, fallback: string): string {
-  const value = item.data?.[key]
-  return typeof value === 'string' && value.length > 0 ? value : fallback
+  return <ProfileCard scope="anonymous" facts={profileFactsFromItem(item)} />
 }
 
 function filtersFromMeta(screen: AppScreenResponse): AppCompareSearchRequest {

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
 import type { Navigate, TabKey } from './navigation'
 
@@ -57,12 +57,14 @@ export function StatusBar({ time }: { time: string }) {
 }
 
 export function BottomNav({ active, navigate }: { active: TabKey; navigate: Navigate }) {
+  const compact = useScrollCompact()
   return (
-    <nav className="bottom-nav" aria-label="주요 메뉴">
+    <nav className={`bottom-nav${compact ? ' is-compact' : ''}`} aria-label="주요 메뉴">
       {tabItems.map((item) => (
         <button
           className={item.key === active ? 'active' : ''}
           type="button"
+          aria-current={item.key === active ? 'page' : undefined}
           onClick={() => navigate(item.path)}
           key={item.key}
         >
@@ -72,6 +74,34 @@ export function BottomNav({ active, navigate }: { active: TabKey; navigate: Navi
       ))}
     </nav>
   )
+}
+
+function useScrollCompact() {
+  const [compact, setCompact] = useState(false)
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const handleScroll = (event: Event) => {
+      const target = event.target as HTMLElement | null
+      if (!target?.classList?.contains('screen')) {
+        return
+      }
+      setCompact(true)
+      if (idleTimer.current) {
+        clearTimeout(idleTimer.current)
+      }
+      idleTimer.current = setTimeout(() => setCompact(false), 400)
+    }
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll, { capture: true })
+      if (idleTimer.current) {
+        clearTimeout(idleTimer.current)
+      }
+    }
+  }, [])
+
+  return compact
 }
 
 export function IconButton({ icon, label, onClick }: { icon: IconName; label: string; onClick?: () => void }) {
@@ -90,7 +120,7 @@ export function IconBadge({ icon, tone }: { icon: string; tone: string }) {
   )
 }
 
-export function ProgressLine({ value, tone }: { value: number; tone: 'purple' | 'green' | 'gray' }) {
+export function ProgressLine({ value, tone }: { value: number; tone: 'teal' | 'red' | 'gray' }) {
   return (
     <span className={`progress-line ${tone}`}>
       <i style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
@@ -121,7 +151,7 @@ export function MiniLineChart({ values }: { values: number[] }) {
 
   return (
     <svg className="mini-chart" viewBox="0 0 120 64" role="img" aria-label="자산 변화 그래프">
-      <polyline points={points} fill="none" stroke="var(--color-primary)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
+      <polyline points={points} fill="none" stroke="var(--teal)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
     </svg>
   )
 }

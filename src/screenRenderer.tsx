@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from './api'
-import { clearSession } from './session'
+import { clearSession, getSession, saveSession } from './session'
 import { cleanProductCopy } from './productCopy'
+import { describeError } from './errors'
 import type { AppAction, AppCompareSearchRequest, AppItem, AppMetric, AppScreenResponse, AppSection } from './types'
 import type { Navigate } from './navigation'
 import {
@@ -28,19 +29,43 @@ import {
   ActivityRow,
   AppSectionCard,
   CompareActionPanel,
-  CompareReportRow,
+  EmptyState,
   FinanceMetricCard,
-  ProfileSignalChips,
   RecommendationRow,
   ScreenLead,
+  SegmentedControl,
   SectionHeading,
   SignalCard,
 } from './AppComponents'
+import {
+  BigNumber,
+  CoachBubble,
+  CompareGauge,
+  FomoCard,
+  Logo,
+  MissionCard,
+  ParticipationBar,
+  PointBadge,
+  PointWallet,
+  ProfileCard,
+  ReportCard,
+  type ReportKind,
+  type ReportStages,
+} from './components'
+import { CompareFilterPage } from './CompareFilterPage'
+import { profileFactsFromItem } from './profileFacts'
 
 type SectionProps = {
   section: AppSection
   navigate: Navigate
 }
+
+type CompareMainTab = 'group' | 'filter' | 'friends'
+
+type InlineScreenState =
+  | { status: 'loading' }
+  | { status: 'ready'; screen: AppScreenResponse }
+  | { status: 'error'; message: string }
 
 export function ScreenRenderer({ screen, navigate }: { screen: AppScreenResponse; navigate: Navigate }) {
   const canGoBack = !['home', 'compare', 'missions', 'records:2026-06', 'profile'].includes(screen.screenId)
@@ -49,6 +74,14 @@ export function ScreenRenderer({ screen, navigate }: { screen: AppScreenResponse
 
   if (screen.screenId === 'home') {
     return <HomeScreen screen={screen} navigate={navigate} />
+  }
+
+  if (screen.screenId === 'compare') {
+    return <CompareMainScreen screen={screen} navigate={navigate} />
+  }
+
+  if (screen.screenId === 'profile') {
+    return <ProfileMainScreen screen={screen} navigate={navigate} />
   }
 
   if (screen.screenId === 'profile:privacy') {
@@ -66,6 +99,7 @@ export function ScreenRenderer({ screen, navigate }: { screen: AppScreenResponse
         </div>
         <h1>{screenTitle}</h1>
         <div className="header-side right">
+          <PointBadge balance={getSession().user?.pointBalance ?? 0} />
           <IconButton icon={headerIcon(screen)} label="메뉴" onClick={() => navigate(headerPath(screen))} />
         </div>
       </header>
@@ -96,44 +130,45 @@ function profileTrustFirstSections(screen: AppScreenResponse) {
 
 function HomeScreen({ screen, navigate }: { screen: AppScreenResponse; navigate: Navigate }) {
   const greeting = screen.sections.find((section) => section.kind === 'greeting')
-  const content = screen.sections.filter((section) => section.kind !== 'greeting')
-  const fomoSignal = content.find((section) => section.kind === 'signalGrid')
+  const fomoSignal = screen.sections.find((section) => section.kind === 'signalGrid')
+  const content = screen.sections.filter((section) => section.kind !== 'greeting' && section !== fomoSignal)
+  const pointBalance = getSession().user?.pointBalance ?? 0
 
   return (
     <div className={`screen screen-home screen-home-reference ${screenClass(screen.screenId)}`}>
       <StatusBar time={screen.statusBarTime} />
+      <header className="home-top-bar">
+        <Logo size={28} />
+        <PointWallet balance={pointBalance} onClick={() => navigate('/missions')} />
+      </header>
       <header className="home-app-header">
         <div>
           <h1>{greeting?.title ?? '좋은 아침이에요'}</h1>
           {greeting?.subtitle ? <p>{greeting.subtitle}</p> : null}
         </div>
-        <IconButton icon="bell" label="알림" onClick={() => navigate('/birthdays')} />
       </header>
       <section className="home-stack">
-        {fomoSignal ? <HomeFomoPanel section={fomoSignal} navigate={navigate} /> : null}
         {content.map((section) => (
           <HomeSection section={section} navigate={navigate} key={section.id} />
         ))}
+        {fomoSignal ? <HomeFomoPanel section={fomoSignal} navigate={navigate} /> : null}
       </section>
     </div>
   )
 }
 
 function HomeFomoPanel({ section, navigate }: SectionProps) {
-  const primaryMetric = section.metrics?.[0]
-  const signalLabel = primaryMetric?.label ?? '금융 루틴'
-  const signalValue = primaryMetric?.value ?? '친구들'
+  const participants = numberFromData(section.data, 'participants') ?? 0
+  const total = numberFromData(section.data, 'total') ?? 0
+  const fomoLabel = stringFromData(section.data, 'fomoLabel')
+
   return (
-    <button className="home-card home-fomo-card" type="button" onClick={() => navigate('/compare')}>
-      <div className="home-fomo-icon">
-        <IconBadge icon={signalLabel.includes('주식') ? 'stocks' : signalLabel.includes('적금') ? 'saving' : 'spark'} tone={primaryMetric?.tone ?? 'purple'} />
-      </div>
+    <button className="home-card home-fomo-card" type="button" onClick={() => navigate(section.detailPath ?? '/compare')}>
       <div className="home-fomo-copy">
-        <span>오늘 놓치면 아쉬운 돈 신호</span>
-        <strong>{signalValue}이 {signalLabel}을 시작했어요</strong>
-        <p>정확한 금액 없이 공개 동의된 행동 여부만 보여드려요. 비교에서 내 다음 행동을 확인해보세요.</p>
+        <HomeCardHeader section={section} navigate={navigate} />
+        {section.subtitle ? <p>{section.subtitle}</p> : null}
+        <ParticipationBar label={section.metrics?.[0]?.label ?? '이번 주 미션 완료'} participants={participants} total={total} fomoLabel={fomoLabel} />
       </div>
-      <Chevron />
     </button>
   )
 }
@@ -151,9 +186,6 @@ function HomeSection({ section, navigate }: SectionProps) {
   if (section.kind === 'asset') {
     return <HomeAssetCard section={section} navigate={navigate} />
   }
-  if (section.kind === 'signalGrid') {
-    return <HomeFollowingCard section={section} navigate={navigate} />
-  }
   if (section.kind === 'actionCard' && section.id === 'birthday-alert') {
     return <HomeBirthdayCard section={section} navigate={navigate} />
   }
@@ -165,48 +197,52 @@ function HomeSection({ section, navigate }: SectionProps) {
 
 function HomeMissionCard({ section, navigate }: SectionProps) {
   const metric = section.metrics?.[0]
+  const rewardPoints = numberFromData(section.data, 'rewardPoints') ?? 0
+  const status = metric?.progress === 100 ? 'done' : 'in_progress'
   return (
     <button className="home-card home-mission-card" type="button" onClick={() => goDetail(section, navigate)}>
-      <div className="home-card-copy">
-        <div className="home-card-head home-mission-head">
-          <span><IconBadge icon="check-square" tone="purple" />오늘의 미션</span>
-          <Chevron />
-        </div>
-        <strong>{section.title}</strong>
-        <div className="home-mission-progress">
-          <small>{metric?.label ?? '진행률'} {metric?.value ?? '0%'}</small>
-          {metric?.caption ? <b>{metric.caption}</b> : null}
-        </div>
-        <ProgressLine value={metric?.progress ?? 0} tone="purple" />
+      <div className="home-card-head home-mission-head">
+        <span><IconBadge icon="check-square" tone="teal" />오늘의 미션</span>
+        <Chevron />
       </div>
+      <MissionCard
+        title={section.title}
+        rewardPoints={rewardPoints}
+        status={status}
+        progressPercent={metric?.progress ?? 0}
+        progressLabel={metric?.caption}
+      />
     </button>
   )
 }
 
 function HomeBudgetCard({ section, navigate }: SectionProps) {
-  const progress = numberFromData(section.data, 'progress') ?? section.metrics?.[1]?.progress ?? 0
+  const remaining = numberFromData(section.data, 'remaining') ?? 0
+  const todayBudget = numberFromData(section.data, 'todayBudget') ?? 0
+  const todaySpent = numberFromData(section.data, 'todaySpent') ?? 0
+  const progress = numberFromData(section.data, 'progress') ?? 0
   return (
     <article className="home-card home-budget-card">
       <HomeCardHeader section={section} navigate={navigate} />
-      <div className="home-budget-grid">
-        {section.metrics?.map((metric) => <MetricView metric={metric} key={metric.label} />)}
-      </div>
-      <ProgressLine value={progress} tone="green" />
+      <BigNumber value={remaining} unit="원" size="l" caption={`예산 ${todayBudget.toLocaleString('ko-KR')}원 남음`} />
+      <ProgressLine value={progress} tone="teal" />
+      <span className="home-budget-spent-note">오늘 {todaySpent.toLocaleString('ko-KR')}원 사용</span>
     </article>
   )
 }
 
 function HomeSpendingCard({ section, navigate }: SectionProps) {
+  const todaySpent = numberFromData(section.data, 'todaySpent') ?? 0
   return (
     <article className="home-card home-spending-card">
       <HomeCardHeader section={section} navigate={navigate} />
+      <BigNumber value={todaySpent} unit="원" size="l" />
       <div className="home-spending-grid">
         {section.items?.slice(0, 4).map((item) => (
           <button type="button" onClick={() => item.detailPath && navigate(item.detailPath)} key={item.id}>
             <IconBadge icon={(item.icon ?? 'more') as IconName} tone={item.tone ?? 'warning'} />
             <strong>{item.title}</strong>
             {item.value ? <b>{item.value}</b> : null}
-            {item.caption ? <small>{item.caption}</small> : null}
           </button>
         ))}
       </div>
@@ -216,33 +252,13 @@ function HomeSpendingCard({ section, navigate }: SectionProps) {
 
 function HomeAssetCard({ section, navigate }: SectionProps) {
   const sparkline = arrayFromData(section.data, 'sparkline')
+  const netWorth = numberFromData(section.data, 'netWorth') ?? 0
   return (
     <article className="home-card home-asset-card">
       <HomeCardHeader section={section} navigate={navigate} />
       <div className="home-asset-layout">
-        <div>
-          {section.metrics?.map((metric) => <MetricView metric={metric} key={metric.label} />)}
-          {section.subtitle ? <p>{section.subtitle}</p> : null}
-        </div>
+        <BigNumber value={netWorth} unit="원" size="l" caption={section.subtitle} />
         {sparkline.length >= 2 ? <MiniLineChart values={sparkline} /> : <ChartEmptyLabel />}
-      </div>
-    </article>
-  )
-}
-
-function HomeFollowingCard({ section, navigate }: SectionProps) {
-  return (
-    <article className="home-card home-following-card">
-      <HomeCardHeader section={section} navigate={navigate} />
-      {section.subtitle ? <p>{section.subtitle}</p> : null}
-      <div className="home-following-grid">
-        {section.metrics?.map((metric) => (
-          <div className="home-following-stat" key={metric.label}>
-            <IconBadge icon={metric.label.includes('주식') ? 'stocks' : metric.label.includes('적금') ? 'saving' : metric.label.includes('펀드') ? 'chart' : 'wallet'} tone={metric.tone ?? 'purple'} />
-            <span>{metric.label}</span>
-            <strong>{metric.value}</strong>
-          </div>
-        ))}
       </div>
     </article>
   )
@@ -253,7 +269,7 @@ function HomeBirthdayCard({ section, navigate }: SectionProps) {
     <article className="home-card home-birthday-card">
       <div className="home-birthday-layout">
         <div className="home-birthday-icon" aria-hidden="true">
-          <IconBadge icon="gift" tone="green" />
+          <IconBadge icon="gift" tone="teal" />
         </div>
         <div className="home-birthday-copy">
           <HomeCardHeader section={section} navigate={navigate} />
@@ -263,7 +279,7 @@ function HomeBirthdayCard({ section, navigate }: SectionProps) {
       <div className="home-birthday-metrics">
         {section.metrics?.map((metric) => <MetricView metric={metric} key={metric.label} />)}
       </div>
-      {section.metrics?.[0]?.progress ? <ProgressLine value={section.metrics[0].progress ?? 0} tone="green" /> : null}
+      {section.metrics?.[0]?.progress ? <ProgressLine value={section.metrics[0].progress ?? 0} tone="teal" /> : null}
       <ActionButtons actions={section.actions} navigate={navigate} />
     </article>
   )
@@ -277,6 +293,205 @@ function HomeEmptyCard({ section, navigate }: SectionProps) {
       {section.metrics?.[0]?.caption ? <small>{section.metrics[0].caption}</small> : null}
       <ActionButtons actions={section.actions} navigate={navigate} />
     </article>
+  )
+}
+
+function CompareMainScreen({ screen, navigate }: { screen: AppScreenResponse; navigate: Navigate }) {
+  const [activeTab, setActiveTab] = useState<CompareMainTab>('group')
+  const recommended = screen.sections.find((section) => section.kind === 'compareGroupRail')
+  const saved = screen.sections.find((section) => section.kind === 'savedCompareGroups')
+  const rest = screen.sections.filter((section) => ![recommended, saved].includes(section))
+
+  return (
+    <div className={`screen screen-compare screen-tab-main screen-compare-main ${screenClass(screen.screenId)}`}>
+      <StatusBar time={screen.statusBarTime} />
+      <TabMainHeader
+        title="나와 비슷한 사람들은 어떻게 관리하고 있을까?"
+        subtitle="정확한 금액이 아니라 공개 동의된 집계와 시작한 행동만 비교해요."
+        icon="sliders"
+        iconLabel="필터"
+        onIconClick={() => navigate('/compare/filter')}
+      />
+      <SegmentedControl
+        activeId={activeTab}
+        onChange={(id) => setActiveTab(id as CompareMainTab)}
+        ariaLabel="비교 방식"
+        panelPrefix="compare-main"
+        items={[
+          { id: 'group', label: '그룹 비교' },
+          { id: 'filter', label: '필터 조회' },
+          { id: 'friends', label: '친구 비교' },
+        ]}
+      />
+      <section
+        className="screen-stack tab-main-stack compare-main-stack"
+        role="tabpanel"
+        id={`compare-main-panel-${activeTab}`}
+        aria-labelledby={`compare-main-tab-${activeTab}`}
+      >
+        {activeTab === 'group' ? (
+          <>
+            {recommended ? <CompareGroupRailSection section={recommended} navigate={navigate} /> : null}
+            {saved ? <SavedCompareGroupsSection section={saved} navigate={navigate} /> : null}
+            {rest.map((section) => <SectionRenderer section={section} navigate={navigate} screen={screen} key={section.id} />)}
+          </>
+        ) : null}
+        {activeTab === 'filter' ? <CompareFilterPage navigate={navigate} embedded /> : null}
+        {activeTab === 'friends' ? <CompareFriendsPanel navigate={navigate} /> : null}
+      </section>
+    </div>
+  )
+}
+
+function CompareFriendsPanel({ navigate }: { navigate: Navigate }) {
+  const loadFriends = useCallback(() => api.getAppProfileSection('following'), [])
+  const state = useInlineScreen('profile-following', loadFriends)
+
+  if (state.status !== 'ready') {
+    return <InlineTabState state={state} loadingTitle="친구 공개 활동을 불러오는 중이에요" />
+  }
+
+  const relationshipList = state.screen.sections.find((section) => section.kind === 'relationshipList')
+
+  return (
+    <div className="inline-tab-panel compare-friends-panel">
+      {relationshipList ? <ProfileRelationshipList section={relationshipList} navigate={navigate} /> : <EmptyInlineTab title="공개 친구 활동이 아직 없어요" />}
+    </div>
+  )
+}
+
+function ProfileMainScreen({ screen, navigate }: { screen: AppScreenResponse; navigate: Navigate }) {
+  const trust = screen.sections.find((section) => section.kind === 'profileFollowingHero')
+  const distribution = screen.sections.find((section) => section.kind === 'distribution')
+  const activity = screen.sections.find((section) => section.kind === 'rankList')
+  const account = screen.sections.find((section) => section.id === 'profile-settings')
+  const safeAccount = redactProfileAccountSection(account)
+  const rest = screen.sections.filter((section) => ![
+    trust,
+    distribution,
+    activity,
+    account,
+    screen.sections.find((candidate) => candidate.kind === 'profileSegmented'),
+  ].includes(section))
+
+  return (
+    <div className={`screen screen-profile screen-tab-main screen-profile-main ${screenClass(screen.screenId)}`}>
+      <StatusBar time={screen.statusBarTime} />
+      <ProfileHeroPanel trust={trust} account={safeAccount} />
+      <ProfileShortcutGrid navigate={navigate} />
+      <section className="screen-stack tab-main-stack profile-main-stack">
+        {distribution ? <ProfileSignalDeck section={distribution} navigate={navigate} /> : null}
+        {activity ? <ProfileActivityList section={activity} navigate={navigate} /> : null}
+        {rest.map((section) => <SectionRenderer section={section} navigate={navigate} screen={screen} key={section.id} />)}
+      </section>
+    </div>
+  )
+}
+
+function ProfileHeroPanel({ trust, account }: { trust?: AppSection; account?: AppSection }) {
+  const name = profileNameFromAccount(account)
+  const points = account?.metrics?.[0]?.value ?? '0P'
+  const progress = Math.max(12, Math.min(100, Math.round(parseMoney(points) / 20)))
+
+  return (
+    <section className="profile-main-hero">
+      <div className="profile-main-identity">
+        <IconBadge icon="profile" tone="teal" />
+        <div>
+          <h1>{name}</h1>
+          <p>공개 미리보기 안전 · 금융 습관 맞춤 중</p>
+          <span>{points}</span>
+        </div>
+      </div>
+      <ProgressLine value={progress} tone="teal" />
+      <div className="profile-main-public-note">
+        <strong>{trust?.title ?? '친구에게 보이는 내 공개 상태'}</strong>
+        <span>정확한 금액, 잔액, 거래처는 숨깁니다.</span>
+      </div>
+    </section>
+  )
+}
+
+function ProfileShortcutGrid({ navigate }: { navigate: Navigate }) {
+  const shortcuts = [
+    { id: 'info', label: '내 정보', icon: 'profile', path: '/settings/privacy' },
+    { id: 'report', label: '내 리포트', icon: 'chart', path: '/compare/coach' },
+    { id: 'points', label: '포인트', icon: 'spark', path: '/profile/points' },
+    { id: 'friends', label: '친구', icon: 'profile', path: '/profile/following' },
+  ] as const
+
+  return (
+    <nav className="profile-shortcut-grid" aria-label="프로필 바로가기">
+      {shortcuts.map((shortcut) => (
+        <button type="button" onClick={() => navigate(shortcut.path)} key={shortcut.id}>
+          <IconBadge icon={shortcut.icon} tone="teal" />
+          <span>{shortcut.label}</span>
+        </button>
+      ))}
+    </nav>
+  )
+}
+
+function TabMainHeader({
+  title,
+  subtitle,
+  icon,
+  iconLabel,
+  onIconClick,
+}: {
+  title: string
+  subtitle?: string
+  icon: IconName
+  iconLabel: string
+  onIconClick: () => void
+}) {
+  return (
+    <header className="tab-main-header">
+      <div>
+        <h1>{title}</h1>
+        {subtitle ? <p>{subtitle}</p> : null}
+      </div>
+      <IconButton icon={icon} label={iconLabel} onClick={onIconClick} />
+    </header>
+  )
+}
+
+function useInlineScreen(key: string, loadScreen: () => Promise<AppScreenResponse>): InlineScreenState {
+  const [state, setState] = useState<InlineScreenState>({ status: 'loading' })
+
+  useEffect(() => {
+    let active = true
+    setState({ status: 'loading' })
+    loadScreen()
+      .then((nextScreen) => {
+        if (active) {
+          setState({ status: 'ready', screen: nextScreen })
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setState({ status: 'error', message: describeError(error) })
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [key, loadScreen])
+
+  return state
+}
+
+function InlineTabState({ state, loadingTitle }: { state: Exclude<InlineScreenState, { status: 'ready' }>; loadingTitle: string }) {
+  return state.status === 'loading'
+    ? <EmptyInlineTab title={loadingTitle} subtitle="잠시만 기다려주세요." icon="spark" />
+    : <EmptyInlineTab title="내용을 불러오지 못했어요" subtitle={state.message} icon="search" />
+}
+
+function EmptyInlineTab({ title, subtitle, icon = 'spark' }: { title: string; subtitle?: string; icon?: string }) {
+  return (
+    <div className="inline-tab-panel">
+      <EmptyState title={title} subtitle={subtitle ?? '조건을 바꾸거나 잠시 후 다시 시도해주세요.'} icon={icon} />
+    </div>
   )
 }
 
@@ -319,7 +534,7 @@ export function NotFoundPage({ navigate }: { navigate: Navigate }) {
   return (
     <div className="screen center-screen">
       <StatusBar time="9:41" />
-      <IconBadge icon="search" tone="purple" />
+      <IconBadge icon="search" tone="teal" />
       <h1>없는 화면이에요</h1>
       <p>다시 홈에서 시작해볼게요.</p>
       <button className="app-button primary" type="button" onClick={() => navigate('/home')}>홈으로</button>
@@ -362,12 +577,16 @@ function headerPath(screen: AppScreenResponse): string {
 function SectionRenderer({ section, navigate, screen }: { section: AppSection; navigate: Navigate; screen?: AppScreenResponse }) {
   const isProfileScreen = screen?.tab === 'profile'
   const isRecordsScreen = screen?.tab === 'records'
+  const isMissionScreen = screen?.tab === 'mission'
 
   if (section.kind === 'greeting' || section.kind === 'lead') {
     return <LeadSection section={section} />
   }
   if (section.kind === 'comparePrompt') {
     return <ComparePromptSection section={section} navigate={navigate} />
+  }
+  if (section.kind === 'friendSignals') {
+    return <FriendSignalsSection section={section} navigate={navigate} />
   }
   if (section.kind === 'compareGroupRail') {
     return <CompareGroupRailSection section={section} navigate={navigate} />
@@ -402,6 +621,12 @@ function SectionRenderer({ section, navigate, screen }: { section: AppSection; n
   if (section.kind === 'missionHero') {
     return <MissionHero section={section} navigate={navigate} />
   }
+  if (isMissionScreen && section.kind === 'loop') {
+    return <MissionLoopSection />
+  }
+  if (isMissionScreen && section.kind === 'list') {
+    return <MissionListSection section={section} navigate={navigate} />
+  }
   if (isRecordsScreen && section.kind === 'budget') {
     return <RecordBudgetPanel section={section} navigate={navigate} screen={screen} />
   }
@@ -423,6 +648,9 @@ function SectionRenderer({ section, navigate, screen }: { section: AppSection; n
   if (section.kind === 'compareBars' || section.kind === 'distribution') {
     return <CompareBarsSection section={section} navigate={navigate} />
   }
+  if (section.kind === 'report') {
+    return <ReportSection section={section} navigate={navigate} />
+  }
   if (section.kind === 'calendar') {
     return <CalendarSection section={section} navigate={navigate} />
   }
@@ -436,7 +664,7 @@ function SectionRenderer({ section, navigate, screen }: { section: AppSection; n
     return <BirthdayCompleteSection section={section} navigate={navigate} />
   }
   if (section.kind === 'coach') {
-    return <IllustratedSection section={section} navigate={navigate} />
+    return <CoachSection section={section} navigate={navigate} />
   }
   if (section.kind === 'points' || section.kind === 'profileHero' || section.kind === 'actionCard') {
     return <MetricCardSection section={section} navigate={navigate} />
@@ -474,26 +702,26 @@ function RecordsOverviewPanel({ screen, navigate }: { screen: AppScreenResponse;
       />
       <div className="record-overview-list">
         <div className="record-overview-row">
-          <IconBadge icon="chart" tone="green" />
+          <IconBadge icon="chart" tone="teal" />
           <div>
             <strong>이번 달 발견한 패턴</strong>
             <span>{recordedCount}일 중 {successCount}일은 예산 안, {overCount}일은 조정이 필요해요.</span>
           </div>
         </div>
         <div className="record-overview-row">
-          <IconBadge icon="check-square" tone="purple" />
+          <IconBadge icon="check-square" tone="teal" />
           <div>
             <strong>다음 미션 후보</strong>
             <span>{nextMission}</span>
           </div>
         </div>
         <div className="record-overview-row">
-          <IconBadge icon="saving" tone="green" />
+          <IconBadge icon="saving" tone="teal" />
           <div>
             <strong>예산 안정도 {stability}%</strong>
             <span>{hasBudgetMetric ? '오늘 사용 금액도 예산 안에서 관리 중입니다.' : '실제 지출이 쌓이면 안정도를 더 정확히 볼 수 있어요.'}</span>
           </div>
-          <ProgressLine value={stability} tone="green" />
+          <ProgressLine value={stability} tone="teal" />
         </div>
       </div>
       <ActionPanel className="record-overview-actions">
@@ -524,7 +752,7 @@ function RecordBudgetPanel({ section, navigate, screen }: { section: AppSection;
           </div>
         ))}
       </div>
-      <ProgressLine value={progress} tone={progress <= 100 ? 'green' : 'purple'} />
+      <ProgressLine value={progress} tone="teal" />
       <p className="record-evidence-note">
         {progress <= 100 ? '예산 안에서 끝난 날은 미션 성공 증거로 기록됩니다.' : '초과한 날도 다음 미션 후보를 고르는 근거로 남겨둡니다.'}
       </p>
@@ -539,6 +767,7 @@ function RecordJournalSection({ section, navigate }: SectionProps) {
   return (
     <AppSectionCard className="record-journal-panel">
       <SectionHeading eyebrow="지출 기록" title={section.title} subtitle={section.subtitle ?? '카테고리별 지출을 카드 타일 대신 기록 행으로 정리했어요.'} />
+      <BigNumber value={total} unit="원" size="l" caption="카테고리 단위 기록 · 가맹점명은 표시하지 않아요" />
       <div className="record-journal-list">
         {items.map((item) => {
           const amount = Math.abs(parseMoney(item.value))
@@ -549,7 +778,7 @@ function RecordJournalSection({ section, navigate }: SectionProps) {
               <div className="record-journal-copy">
                 <strong>{cleanCaption(item.title)}</strong>
                 <span>{item.value ? cleanCaption(item.value) : '기록 대기'}</span>
-                <ProgressLine value={progress} tone="green" />
+                <ProgressLine value={progress} tone="teal" />
               </div>
               <em>{progress}%</em>
             </button>
@@ -576,7 +805,7 @@ function RecordEventListSection({ section, navigate }: SectionProps) {
             item={{ ...item, title: cleanCaption(item.title), subtitle: item.subtitle ? cleanCaption(item.subtitle) : item.subtitle, value: item.value ? cleanCaption(item.value) : item.value, caption: item.caption ? cleanCaption(item.caption) : item.caption }}
             navigate={navigate}
             icon={item.icon ?? (isPoint ? 'saving' : 'check-square')}
-            tone={item.tone ?? (isPoint ? 'green' : 'purple')}
+            tone={item.tone ?? 'teal'}
             rank={section.kind === 'rankList' ? index + 1 : null}
             key={item.id}
           />
@@ -614,7 +843,7 @@ function PrivacyTrustCenterScreen({ screen, navigate }: { screen: AppScreenRespo
         <AppSectionCard className="privacy-preview-panel">
           <SectionHeading eyebrow="친구에게 보이는 예시" title="행동 여부 중심으로 보여요" subtitle="프로필 상단의 공개 미리보기와 같은 기준으로 표시됩니다." />
           <div className="privacy-preview-card">
-            <IconBadge icon="profile" tone="green" />
+            <IconBadge icon="profile" tone="teal" />
             <div>
               <strong>나의 공개 미리보기</strong>
               <span>{visibleLabels.slice(0, 4).join(', ')}</span>
@@ -625,9 +854,9 @@ function PrivacyTrustCenterScreen({ screen, navigate }: { screen: AppScreenRespo
         <AppSectionCard className="privacy-data-panel">
           <SectionHeading eyebrow="공개 범위" title="보이는 데이터와 숨기는 데이터를 분리했어요" subtitle="소셜 자극은 유지하되 민감한 금융 정보는 개인 화면 안에만 둡니다." />
           <div className="privacy-trust-list">
-            <PrivacyTrustRow icon="check" tone="green" title="친구에게 보이는 정보" labels={visibleLabels} />
+            <PrivacyTrustRow icon="check" tone="teal" title="친구에게 보이는 정보" labels={visibleLabels} />
             <PrivacyTrustRow icon="settings" tone="muted" title="항상 숨기는 정보" labels={hiddenLabels} />
-            <PrivacyTrustRow icon="spark" tone="purple" title="AI 코치가 보는 데이터" labels={['익명화된 지출 패턴', '미션 달성 상태', '비교 그룹 집계']} />
+            <PrivacyTrustRow icon="spark" tone="teal" title="AI 코치가 보는 데이터" labels={['익명화된 지출 패턴', '미션 달성 상태', '비교 그룹 집계']} />
           </div>
         </AppSectionCard>
         <AppSectionCard className="privacy-action-panel">
@@ -657,8 +886,12 @@ function PrivacyTrustRow({ icon, tone, title, labels }: { icon: string; tone: st
 }
 
 function BirthdayEventSection({ section, navigate, screen }: { section: AppSection; navigate: Navigate; screen?: AppScreenResponse }) {
-  const progress = section.metrics?.find((metric) => typeof metric.progress === 'number')?.progress
   const isComplete = screen?.screenId.includes(':status') || section.id === 'complete'
+  const collected = numberFromData(section.data, 'collectedAmount')
+  const goal = numberFromData(section.data, 'goalAmount')
+  const participants = numberFromData(section.data, 'participants')
+  const totalFriends = numberFromData(section.data, 'totalFriends')
+
   return (
     <AppSectionCard className={`birthday-event-panel section-${section.id}`}>
       <SectionHeading
@@ -667,25 +900,13 @@ function BirthdayEventSection({ section, navigate, screen }: { section: AppSecti
         subtitle={section.subtitle ?? '친구 기반으로 돈이 모이는 경험을 가볍게 확인합니다.'}
         onAction={section.detailPath ? () => navigate(section.detailPath ?? '/birthdays') : undefined}
       />
-      <div className="birthday-event-layout">
-        <div className="birthday-event-icon">
-          <IconBadge icon="gift" tone="green" />
-        </div>
-        <div className="birthday-event-copy">
-          <strong>{isComplete ? '축하 메시지가 전달됐어요' : '참여자별 금액은 공개하지 않아요'}</strong>
-          <span>친구에게는 참여 여부와 메시지 중심으로 보이고, 개인별 금액은 숨깁니다.</span>
-        </div>
-      </div>
-      <div className="birthday-event-metrics">
-        {section.metrics?.map((metric) => (
-          <div className="birthday-event-metric" data-tone={metric.tone ?? 'default'} key={metric.label}>
-            <span>{cleanCaption(metric.label)}</span>
-            <strong>{cleanCaption(metric.value)}</strong>
-            {metric.caption ? <small>{cleanCaption(metric.caption)}</small> : null}
-          </div>
-        ))}
-      </div>
-      {typeof progress === 'number' ? <ProgressLine value={progress} tone="green" /> : null}
+      {typeof collected === 'number' ? (
+        <BigNumber value={collected} unit="원" size="l" caption={goal ? `목표 ${goal.toLocaleString('ko-KR')}원` : null} />
+      ) : null}
+      <p className="birthday-privacy-note">참여자별 금액은 공개하지 않아요 — 참여 여부와 메시지 중심으로만 보여요.</p>
+      {typeof participants === 'number' && typeof totalFriends === 'number' ? (
+        <ParticipationBar label="친구 참여" participants={participants} total={totalFriends} showAvatars />
+      ) : null}
       {section.items?.length ? <BirthdayParticipantRows items={section.items} /> : null}
       <ActionButtons actions={section.actions} navigate={navigate} />
     </AppSectionCard>
@@ -732,7 +953,7 @@ function BirthdayParticipantRows({ items }: { items: AppItem[] }) {
     <div className="birthday-participant-list">
       {items.map((item, index) => (
         <article className="birthday-participant-row" key={item.id}>
-          <IconBadge icon={item.icon ?? 'profile'} tone={item.tone ?? 'green'} />
+          <IconBadge icon={item.icon ?? 'profile'} tone={item.tone ?? 'teal'} />
           <div>
             <strong>{item.title === '나' ? '나의 참여' : `참여자 ${index + 1}`}</strong>
             <span>{item.subtitle ? cleanCaption(item.subtitle) : '축하 메시지 있음'}</span>
@@ -765,10 +986,69 @@ function MissionHero({ section, navigate }: SectionProps) {
           </span>
         ) : <Chevron />}
       </button>
-      <ProgressLine value={metric?.progress ?? 0} tone="purple" />
+      <ProgressLine value={metric?.progress ?? 0} tone="teal" />
       <ActionButtons actions={section.actions} navigate={navigate} />
     </AppSectionCard>
   )
+}
+
+/** UI.md 7장 핵심 루프 — 진짜 순서가 있는 흐름이라 넘버링/화살표 시각화를 허용한다. */
+function MissionLoopSection() {
+  const steps = ['미션', '포인트', '리포트 열람', '비교/FOMO', '행동 추천', '다시 미션']
+  return (
+    <AppSectionCard className="mission-loop-panel">
+      <SectionHeading eyebrow="핵심 루프" title="미션이 이렇게 이어져요" subtitle="완료하면 포인트가 쌓이고, 포인트로 리포트를 열람하고, 다시 다음 미션으로 이어집니다." />
+      <div className="onboarding-flow-row mission-loop-row" aria-label="미션 경제 루프">
+        {steps.map((step, index) => (
+          <span key={step}>
+            {step}
+            {index < steps.length - 1 ? <Chevron /> : null}
+          </span>
+        ))}
+      </div>
+    </AppSectionCard>
+  )
+}
+
+function MissionListSection({ section, navigate }: SectionProps) {
+  const isCompleted = section.id === 'completed'
+  const [pendingId, setPendingId] = useState<string | null>(null)
+
+  const handleStart = async (item: AppItem) => {
+    if (!item.detailPath) {
+      return
+    }
+    setPendingId(item.id)
+    try {
+      navigate(item.detailPath)
+    } finally {
+      setPendingId(null)
+    }
+  }
+
+  return (
+    <AppSectionCard className={`mission-list-panel section-${section.id}`}>
+      <SectionHeading eyebrow={isCompleted ? '완료' : '진행 중'} title={section.title} subtitle={section.subtitle} />
+      <div className="fm-mission-list">
+        {section.items?.map((item) => (
+          <MissionCard
+            key={item.id}
+            title={cleanCaption(item.title)}
+            rewardPoints={parsePointCaption(item.caption)}
+            status={isCompleted ? 'done' : 'todo'}
+            progressLabel={item.subtitle ? cleanCaption(item.subtitle) : null}
+            busy={pendingId === item.id}
+            onCta={isCompleted ? undefined : () => { void handleStart(item) }}
+          />
+        ))}
+      </div>
+    </AppSectionCard>
+  )
+}
+
+function parsePointCaption(caption?: string | null): number {
+  const match = caption?.match(/\d+/)
+  return match ? Number.parseInt(match[0], 10) : 0
 }
 
 function BudgetSection({ section, navigate }: SectionProps) {
@@ -781,7 +1061,7 @@ function BudgetSection({ section, navigate }: SectionProps) {
           <FinanceMetricCard metric={metric} key={metric.label} />
         ))}
       </div>
-      <ProgressLine value={progress} tone="green" />
+      <ProgressLine value={progress} tone="teal" />
     </AppSectionCard>
   )
 }
@@ -804,7 +1084,7 @@ function GridSection({ section, navigate }: SectionProps) {
               value={metric.value}
               caption={metric.caption}
               icon={metric.label.includes('주식') ? 'stocks' : metric.label.includes('적금') ? 'saving' : metric.label.includes('펀드') ? 'fund' : 'pension'}
-              tone={metric.tone ?? 'purple'}
+              tone={metric.tone ?? 'teal'}
               progress={metric.progress}
               key={metric.label}
             />
@@ -819,7 +1099,7 @@ function GridSection({ section, navigate }: SectionProps) {
               value={item.value}
               caption={item.caption}
               icon={item.icon ?? 'more'}
-              tone={item.tone ?? 'purple'}
+              tone={item.tone ?? 'teal'}
               progress={numberFromData(item.data, 'progress')}
               onClick={item.detailPath ? () => navigate(item.detailPath ?? '/home') : undefined}
               key={item.id}
@@ -854,23 +1134,14 @@ function ChartEmptyLabel() {
 
 function CompareScoreSummarySection({ section, screen }: { section: AppSection; screen?: AppScreenResponse }) {
   const memberCount = numberFromData(screen?.meta, 'memberCount')
-  const metrics = [
-    ...(section.metrics ?? []),
-    ...(memberCount ? [{ label: '표본 수', value: `${memberCount}명`, caption: '공개 프로필 기준', tone: 'muted', progress: null }] : []),
-  ]
+  const meScore = numberFromData(section.data, 'meScore') ?? 0
+  const groupScore = numberFromData(section.data, 'groupScore') ?? 0
 
   return (
     <AppSectionCard className="compare-score-summary compare-section-card">
-      <SectionHeading eyebrow="리포트 요약" title={section.title} subtitle={section.subtitle ?? '내 점수와 그룹 평균, 표본 규모를 한 번에 확인해요.'} />
-      <div className="compare-score-grid">
-        {metrics.map((metric) => (
-          <div className="compare-score-item" data-tone={metric.tone ?? 'default'} key={metric.label}>
-            <span>{metric.label}</span>
-            <strong>{metric.value}</strong>
-            {metric.caption ? <small>{metric.caption}</small> : null}
-          </div>
-        ))}
-      </div>
+      <SectionHeading eyebrow="리포트 요약" title={section.title} subtitle={section.subtitle ?? '내 점수와 그룹 평균을 한눈에 확인해요.'} />
+      <CompareGauge category="금융 점수" meValue={meScore} otherValue={groupScore} otherName="그룹 평균" unit="점" />
+      {memberCount ? <p className="compare-sample-note">표본 {memberCount}명 · 공개 프로필 기준</p> : null}
     </AppSectionCard>
   )
 }
@@ -879,14 +1150,92 @@ function CompareBarsSection({ section, navigate }: SectionProps) {
   return (
     <AppSectionCard className="compare-card compare-report-panel">
       <SectionHeading eyebrow="항목별 비교" title={section.title} subtitle={section.subtitle} onAction={section.detailPath ? () => navigate(section.detailPath ?? '/compare') : undefined} actionLabel="보기" />
-      <div className="bar-list">
+      <div className="fm-gauge-stack">
         {section.items?.map((item) => (
-          <CompareReportRow item={item} onClick={item.detailPath ? () => navigate(item.detailPath ?? '/compare') : undefined} key={item.id} />
+          <CompareGauge
+            key={item.id}
+            category={item.title}
+            meValue={numberFromData(item.data, 'mine') ?? 0}
+            otherValue={numberFromData(item.data, 'group') ?? 0}
+            unit={stringFromData(item.data, 'unit') ?? '%'}
+          />
         ))}
       </div>
       <ActionButtons actions={section.actions} navigate={navigate} />
     </AppSectionCard>
   )
+}
+
+function ReportSection({ section, navigate }: SectionProps) {
+  const pointCost = numberFromData(section.data, 'pointCost') ?? 30
+  const kind = (stringFromData(section.data, 'reportKind') as ReportKind | null) ?? 'other-group'
+  const [locked, setLocked] = useState(true)
+
+  const unlock = () => {
+    const session = getSession()
+    const balance = session.user?.pointBalance ?? 0
+    if (balance < pointCost || !session.user) {
+      return
+    }
+    saveSession({ user: { ...session.user, pointBalance: balance - pointCost } })
+    setLocked(false)
+  }
+
+  return (
+    <ReportCard
+      kind={kind}
+      title={section.title}
+      locked={locked}
+      pointCost={pointCost}
+      onUnlock={unlock}
+      stages={locked ? undefined : reportStagesFor(kind, navigate)}
+    />
+  )
+}
+
+/**
+ * 6단계 리포트 콘텐츠. group-follow(팔로우 그룹)는 4단계에 비율만,
+ * my-group/other-group(익명 기반)은 4단계에 정확 금액을 담아 6장 규칙을 지킨다.
+ */
+function reportStagesFor(kind: ReportKind, navigate: Navigate): ReportStages {
+  if (kind === 'follow-group') {
+    return {
+      summary: '내 팔로우 그룹은 저축·적금 실천 비율이 높은 편이에요.',
+      traits: ['꾸준한 저축형', '고정지출 관리형'],
+      behaviors: ['적금 자동이체', '비상금 통장 개설', '청약 알아보기'],
+      stageFour: {
+        kind: 'ratio',
+        rows: [
+          { label: '적금 실천 비율', value: '64%' },
+          { label: '비상금 준비 비율', value: '48%' },
+        ],
+      },
+      gapWithMe: '이 그룹은 너보다 비상금 준비율이 높아요.',
+      nextAction: {
+        label: '이번 주 비상금 3만원 만들기 미션을 추천해요.',
+        ctaLabel: '미션 시작',
+        onCta: () => navigate('/missions/mission-water'),
+      },
+    }
+  }
+  return {
+    summary: kind === 'my-group' ? '내 그룹은 안정 추구형이 많아요.' : '투자 비중이 높은 공격형 스타일 그룹이에요.',
+    traits: kind === 'my-group' ? ['안정 추구형', '저축 우선형'] : ['투자 적극형', '정보 탐색형'],
+    behaviors: ['ETF 정기매수', 'ISA 개설', '정기예금 가입'],
+    stageFour: {
+      kind: 'amounts',
+      rows: [
+        { label: '삼성전자', amountLabel: '평균 128만원' },
+        { label: 'TIGER 미국S&P500', amountLabel: '평균 96만원' },
+      ],
+    },
+    gapWithMe: '이 그룹은 너보다 투자 비중이 18%p 높아요.',
+    nextAction: {
+      label: 'ISA 계좌를 알아보는 미션을 추천해요.',
+      ctaLabel: '미션 시작',
+      onCta: () => navigate('/missions/mission-record'),
+    },
+  }
 }
 
 function CalendarSection({ section, navigate }: SectionProps) {
@@ -934,32 +1283,19 @@ function CalendarSection({ section, navigate }: SectionProps) {
   )
 }
 
-function IllustratedSection({ section, navigate }: SectionProps) {
-  const icon = section.kind === 'coach' ? 'spark' : 'gift'
-  const tone = section.kind === 'coach' ? 'purple' : 'green'
+function CoachSection({ section, navigate }: SectionProps) {
+  const missionAction = section.actions?.[0]
   return (
-    <AppSectionCard className={`illustrated-card ${section.kind} section-${section.id} event-panel`}>
-      <SectionHeading
-        eyebrow={section.kind === 'coach' ? '코치 요약' : '생일 펀드'}
-        title={section.title}
-        onAction={section.detailPath ? () => navigate(section.detailPath ?? '/home') : undefined}
-        actionLabel="보기"
+    <AppSectionCard className={`coach-card section-${section.id}`}>
+      <SectionHeading eyebrow="코치 요약" title={section.title} />
+      <CoachBubble
+        message={section.subtitle ?? '오늘 데이터를 보고 있어요.'}
+        ctaLabel={missionAction?.label ?? '미션 시작'}
+        onCta={() => navigate(missionAction?.path ?? '/missions')}
       />
-      <div className="illustrated-layout">
-        <IconBadge icon={icon} tone={tone} />
-        <div>
-          {section.subtitle ? <p>{section.subtitle}</p> : null}
-          <div className="finance-metric-grid compact">
-            {section.metrics?.map((metric) => (
-              <FinanceMetricCard metric={metric} key={metric.label} />
-            ))}
-          </div>
-        </div>
-      </div>
       {section.metrics?.[0]?.progress ? (
-        <ProgressLine value={section.metrics[0].progress ?? 0} tone="green" />
+        <ProgressLine value={section.metrics[0].progress ?? 0} tone="teal" />
       ) : null}
-      <ActionButtons actions={section.actions} navigate={navigate} />
     </AppSectionCard>
   )
 }
@@ -1003,6 +1339,46 @@ function ComparePromptSection({ section, navigate }: SectionProps) {
       </button>
     </CompareActionPanel>
   )
+}
+
+function FriendSignalsSection({ section, navigate }: SectionProps) {
+  const items = section.items ?? []
+  const highest = items.reduce<AppItem | null>((top, item) => {
+    const rate = participationRate(item)
+    const topRate = top ? participationRate(top) : -1
+    return rate > topRate ? item : top
+  }, null)
+  const highestRate = highest ? participationRate(highest) : 0
+
+  return (
+    <AppSectionCard className="compare-friend-signals-section compare-section-card">
+      <SectionHeading eyebrow="친구 근황" title={section.title} subtitle={section.subtitle} onAction={section.detailPath ? () => navigate(section.detailPath ?? '/profile') : undefined} actionLabel="친구 목록" />
+      <div className="fm-participation-stack">
+        {items.map((item) => (
+          <ParticipationBar
+            key={item.id}
+            label={item.title}
+            participants={numberFromData(item.data, 'participants') ?? 0}
+            total={numberFromData(item.data, 'total') ?? 0}
+            showAvatars={false}
+          />
+        ))}
+      </div>
+      {highest && highestRate >= 60 ? (
+        <FomoCard
+          message={`${cleanCaption(highest.title)}, 네 친구 중 ${highestRate}%가 하고 있어요.`}
+          ctaLabel="비교 리포트 열람"
+          onCta={() => navigate('/compare/results/cmp-001')}
+        />
+      ) : null}
+    </AppSectionCard>
+  )
+}
+
+function participationRate(item: AppItem): number {
+  const participants = numberFromData(item.data, 'participants') ?? 0
+  const total = numberFromData(item.data, 'total') ?? 0
+  return total > 0 ? Math.round((participants / total) * 100) : 0
 }
 
 function CompareGroupRailSection({ section, navigate }: SectionProps) {
@@ -1059,7 +1435,7 @@ function SavedCompareGroupsSection({ section, navigate }: SectionProps) {
       <SectionHeading eyebrow="내 비교" title={section.title} subtitle={section.subtitle} onAction={section.detailPath ? () => navigate(section.detailPath ?? '/compare/filter') : undefined} />
       <div className="saved-compare-list activity-list">
         {section.items?.map((item) => (
-          <ActivityRow item={item} navigate={navigate} icon={item.icon ?? 'profile'} tone={item.tone ?? 'purple'} key={item.id} />
+          <ActivityRow item={item} navigate={navigate} icon={item.icon ?? 'profile'} tone={item.tone ?? 'teal'} key={item.id} />
         ))}
       </div>
       <ActionButtons actions={section.actions} navigate={navigate} />
@@ -1074,7 +1450,7 @@ function CompareProfileListSection({ section, navigate }: SectionProps) {
       <div className="compare-profile-list">
         {section.items?.map((item) => (
           <button className="compare-profile-card" type="button" onClick={() => item.detailPath && navigate(item.detailPath)} key={item.id}>
-            <IconBadge icon={item.icon ?? 'profile'} tone={item.tone ?? 'purple'} />
+            <IconBadge icon={item.icon ?? 'profile'} tone={item.tone ?? 'teal'} />
             <div className="compare-profile-copy">
               <strong>{item.title}</strong>
               {item.subtitle ? <span>{item.subtitle}</span> : null}
@@ -1130,48 +1506,8 @@ function CompareGroupMembersSection({ section, navigate }: SectionProps) {
 }
 
 function CompareMemberCard({ item }: { item: AppItem }) {
-  const stock = item.data?.stockSignal === true
-  const saving = item.data?.savingSignal === true
-  const pension = item.data?.pensionSignal === true
-  const ageBand = stringFromData(item.data, 'ageBand') ?? '나이 미공개'
-  const jobCategory = stringFromData(item.data, 'jobCategory') ?? '직업 미공개'
-  const incomeBand = stringFromData(item.data, 'incomeBand') ?? '미공개'
-  const area = stringFromData(item.data, 'area') ?? '지역 미공개'
-  const moneyStyle = stringFromData(item.data, 'moneyStyle') ?? '성향 미공개'
-  const tags = [
-    moneyStyle !== '성향 미공개' ? moneyStyle : '',
-    stock ? '투자중' : '',
-    saving ? '저축중' : '',
-    pension ? '연금준비' : '',
-  ].filter(Boolean).slice(0, 2)
-
-  return (
-    <article className="compare-profile-card compare-filter-profile-card compare-member-card">
-      <div className="compare-profile-avatar" aria-hidden="true">
-        <IconBadge icon="profile" tone="purple" />
-      </div>
-      <div className="compare-profile-main">
-        <div className="compare-profile-name">
-          <strong>{item.title}</strong>
-          <span>{ageBand}</span>
-        </div>
-        <p>{jobCategory} · 연소득 {incomeBand}</p>
-        <p>{area} · {moneyStyle}</p>
-        {tags.length > 0 ? (
-          <div className="compare-profile-tags" aria-label="프로필 태그">
-            {tags.map((tag) => <span key={tag}>#{tag}</span>)}
-          </div>
-        ) : null}
-      </div>
-      <ProfileSignalChips
-        signals={[
-          { active: stock, label: '주식', icon: 'stocks' },
-          { active: saving, label: '적금', icon: 'saving' },
-          { active: pension, label: '연금', icon: 'pension' },
-        ]}
-      />
-    </article>
-  )
+  // 그룹 구성원도 익명 개인 단위이므로 UI.md 6장 `anonymous` scope를 그대로 적용한다.
+  return <ProfileCard scope="anonymous" facts={profileFactsFromItem(item)} />
 }
 
 function ListSection({ section, navigate }: SectionProps) {
@@ -1405,6 +1741,30 @@ function parseMoney(value: string | null | undefined) {
   return Number.parseInt(numeric, 10) || 0
 }
 
+function profileNameFromAccount(account: AppSection | undefined) {
+  const subtitle = account?.subtitle ?? ''
+  const marker = '님의'
+  const markerIndex = subtitle.indexOf(marker)
+  if (markerIndex > 0) {
+    return subtitle.slice(0, markerIndex)
+  }
+  return '내 프로필'
+}
+
+function redactProfileAccountSection(account: AppSection | undefined): AppSection | undefined {
+  if (!account) {
+    return undefined
+  }
+  return {
+    ...account,
+    metrics: account.metrics?.map((metric) => (
+      metric.label.includes('포인트')
+        ? { ...metric, caption: '가상머니는 공개 화면에서 숨김' }
+        : metric
+    )) ?? null,
+  }
+}
+
 function parsePercent(value: string | null | undefined) {
   if (!value) {
     return null
@@ -1443,18 +1803,18 @@ function inferItemPresentation(item: AppItem, variant?: string): { icon: string;
   if (variant === 'feed' || item.icon === 'feed') {
     const text = `${item.title} ${item.subtitle}`.toLowerCase()
     if (text.includes('펀드') || text.includes('생일')) {
-      return { icon: 'gift', tone: 'green' }
+      return { icon: 'gift', tone: 'teal' }
     }
     if (text.includes('저축') || text.includes('비상금')) {
-      return { icon: 'saving', tone: 'green' }
+      return { icon: 'saving', tone: 'teal' }
     }
     if (text.includes('투자') || text.includes('주식')) {
-      return { icon: 'stocks', tone: 'purple' }
+      return { icon: 'stocks', tone: 'teal' }
     }
     if (text.includes('지출') || text.includes('카페')) {
       return { icon: 'spend', tone: 'warning' }
     }
-    return { icon: 'check', tone: 'green' }
+    return { icon: 'check', tone: 'teal' }
   }
-  return { icon: (item.icon ?? 'check') as IconName, tone: item.tone ?? 'purple' }
+  return { icon: (item.icon ?? 'check') as IconName, tone: item.tone ?? 'teal' }
 }

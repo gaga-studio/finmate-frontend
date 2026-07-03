@@ -9,6 +9,7 @@ import { clearSession, getSession, saveSession, type FinMateSession } from './se
 import { BottomNav } from './uiPrimitives'
 import { LoadingScreen, NotFoundPage } from './screenRenderer'
 import './App.css'
+import './components/signature.css'
 
 function usePathname(): [string, Navigate] {
   const [pathname, setPathname] = useState(window.location.pathname)

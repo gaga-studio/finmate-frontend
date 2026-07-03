@@ -22,7 +22,7 @@ VITE_API_BASE_URL=http://localhost:8080 npm run dev
 
 ```bash
 docker build -t finmate-frontend --build-arg VITE_API_BASE_URL=http://localhost:8080 .
-docker run -p 5173:80 finmate-frontend
+docker run -p 5174:80 finmate-frontend
 ```
 
 `VITE_API_BASE_URL`은 빌드 타임에 번들에 굳어지는 값입니다(Vite 환경변수 특성). 백엔드 주소가 바뀌면 `docker run`이 아니라 `docker build --build-arg`를 다시 해야 반영됩니다.
@@ -68,7 +68,7 @@ npm run e2e --prefix apps/web
 python3 tools/scripts/validate_product_mvp.py
 ```
 
-E2E는 `http://localhost:5173`와 `http://localhost:8080`이 실행 중이라고 가정합니다. 다른 주소를 사용할 때는 `PLAYWRIGHT_BASE_URL`, `PLAYWRIGHT_API_URL`을 설정합니다.
+E2E는 `http://localhost:5174`와 `http://localhost:8080`이 실행 중이라고 가정합니다. 다른 주소를 사용할 때는 `PLAYWRIGHT_BASE_URL`, `PLAYWRIGHT_API_URL`을 설정합니다.
 
 PWA manifest는 `public/manifest.webmanifest`, 기본 service worker는 `public/sw.js`에 있습니다. Docker web은 Vite production build를 nginx로 서빙합니다.
 
