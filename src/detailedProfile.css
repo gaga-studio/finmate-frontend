@@ -38,6 +38,32 @@
   box-shadow: var(--shadow-1);
 }
 
+.pd-avatar-seed {
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  border: 3px solid var(--surface);
+  border-radius: 999px;
+  background: var(--teal-50);
+  color: var(--teal-700);
+  box-shadow: var(--shadow-2);
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.pd-avatar-seed.tone-1,
+.pd-avatar-seed.tone-4 {
+  background: var(--purple-50);
+  color: var(--purple);
+}
+
+.pd-avatar-seed.tone-2,
+.pd-avatar-seed.tone-5 {
+  background: var(--surface-muted);
+  color: var(--ink-700);
+}
+
 .pd-nickname {
   margin: var(--space-1) 0 0;
   color: var(--ink-800);
@@ -51,6 +77,13 @@
   color: var(--ink-500);
   font-size: 13px;
   font-weight: 500;
+}
+
+.pd-privacy-note {
+  margin: var(--space-1) 0 0;
+  color: var(--teal-700);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .pd-follow-row {
@@ -97,6 +130,12 @@
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   word-break: break-all;
+}
+
+.pd-summary-badge small {
+  color: var(--ink-400);
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .pd-mission-stack {
@@ -208,6 +247,7 @@
   width: 8px;
   height: 8px;
   border-radius: 999px;
+  background: var(--teal);
 }
 
 .pd-asset-card strong {
@@ -221,6 +261,21 @@
   color: var(--ink-400);
   font-size: 11px;
   font-weight: 600;
+}
+
+.pd-asset-card em {
+  color: var(--teal-600);
+  font-size: 11px;
+  font-weight: 800;
+  font-style: normal;
+}
+
+.pd-big-value {
+  display: block;
+  color: var(--ink-800);
+  font-size: 28px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
 }
 
 .pd-donut-wrap {
@@ -274,6 +329,10 @@
   gap: var(--space-2);
   padding: var(--space-2) 0;
   border-bottom: 1px solid var(--line);
+}
+
+.pd-category-row > .progress-line {
+  grid-column: 2 / -1;
 }
 
 .pd-category-row:last-child {
@@ -542,6 +601,14 @@ button.pd-asset-card {
 .pd-detail-row-name {
   color: var(--ink-800);
   font-size: 14px;
+  font-weight: 700;
+}
+
+.pd-detail-row-name small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-400);
+  font-size: 12px;
   font-weight: 700;
 }
 

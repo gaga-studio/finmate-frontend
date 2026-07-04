@@ -1,113 +1,65 @@
-import { useState } from 'react'
 import type { Navigate } from './navigation'
-import { BigNumber } from './components'
+import { AppSectionCard, SectionHeading } from './AppComponents'
+import type { AppItem, AppScreenResponse } from './types'
 import { IconButton, StatusBar } from './uiPrimitives'
-import { assetCategoryDetails, type AccountLineItem, type InvestmentTab, type StatRow } from './assetCategoryDetailData'
-import { detailedProfile } from './detailedProfileData'
 import './detailedProfile.css'
 
-/**
- * 상세 프로필 '금융자산' 카드(입출금/예금/적금/투자/대출) → 계좌·상품 목록 화면.
- * navigation.ts의 profile-detail-asset 라우트에서만 진입하는 독립 화면.
- */
-export function AssetCategoryDetailPage({ categoryId, navigate }: { categoryId: string; navigate: Navigate }) {
-  const detail = assetCategoryDetails[categoryId] ?? assetCategoryDetails.checking
-  const [activeTab, setActiveTab] = useState(detail.tabs?.[0]?.id ?? '')
-  const activeTabData = detail.tabs?.find((tab) => tab.id === activeTab)
+export function AssetCategoryDetailPage({
+  screen,
+  backPath,
+  navigate,
+}: {
+  screen: AppScreenResponse
+  backPath: string
+  navigate: Navigate
+}) {
+  const hero = screen.sections.find((section) => section.kind === 'profileAssetDetailHero')
+  const list = screen.sections.find((section) => section.kind === 'profileAssetDetailList')
+  const metric = hero?.metrics?.[0]
 
   return (
     <div className="screen screen-profile-detail-asset">
-      <StatusBar time="9:41" />
+      <StatusBar time={screen.statusBarTime} />
       <header className="app-header">
         <div className="header-side">
-          <IconButton icon="back" label="뒤로" onClick={() => navigate('/profile/detail')} />
+          <IconButton icon="back" label="뒤로" onClick={() => navigate(backPath)} />
         </div>
-        <h1>{detailedProfile.header.nickname}</h1>
+        <h1>{screen.title}</h1>
         <div className="header-side right" />
       </header>
 
       <section className="pd-detail-hero">
-        <span className="pd-detail-eyebrow">{detail.eyebrow}</span>
-        <BigNumber value={detail.total} unit="원" size="l" />
+        {hero?.subtitle ? <span className="pd-detail-eyebrow">{hero.subtitle}</span> : null}
+        <strong className="pd-big-value">{metric?.value ?? '0원'}</strong>
+        {metric?.caption ? <small>{metric.caption}</small> : null}
       </section>
 
-      {detail.statRows ? <StatRows rows={detail.statRows} /> : null}
-
-      {detail.tabs ? (
-        <InvestmentTabs tabs={detail.tabs} activeTab={activeTab} activeTabData={activeTabData} onChange={setActiveTab} />
-      ) : (
-        <>
-          {detail.sectionTitle ? <p className="pd-detail-section-title">{detail.sectionTitle}</p> : null}
-          <AccountList items={detail.items ?? []} />
-        </>
-      )}
+      <AppSectionCard>
+        <SectionHeading title={list?.title ?? '연결 상품'} subtitle={list?.subtitle} />
+        <div className="pd-detail-list">
+          {(list?.items ?? []).map((item) => (
+            <AssetRow item={item} key={item.id} />
+          ))}
+        </div>
+        {list?.data?.identifiersHidden ? (
+          <p className="pd-insight">계좌번호, 카드번호, 거래번호는 저장되어도 화면에는 표시하지 않아요.</p>
+        ) : null}
+      </AppSectionCard>
     </div>
   )
 }
 
-function StatRows({ rows }: { rows: StatRow[] }) {
+function AssetRow({ item }: { item: AppItem }) {
   return (
-    <div className="pd-detail-stat-rows">
-      {rows.map((row) => (
-        <div className="pd-detail-stat-row" key={row.label}>
-          <span>{row.label}</span>
-          <strong className={row.tone ?? ''}>{row.value}</strong>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function InvestmentTabs({
-  tabs,
-  activeTab,
-  activeTabData,
-  onChange,
-}: {
-  tabs: InvestmentTab[]
-  activeTab: string
-  activeTabData?: InvestmentTab
-  onChange: (id: string) => void
-}) {
-  return (
-    <>
-      <div className="pd-detail-tabs" role="tablist" aria-label="투자 종류">
-        {tabs.map((tab) => (
-          <button
-            className={tab.id === activeTab ? 'is-active' : ''}
-            type="button"
-            role="tab"
-            aria-selected={tab.id === activeTab}
-            onClick={() => onChange(tab.id)}
-            key={tab.id}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-      {activeTabData?.groupLabel ? <p className="pd-detail-section-title">{activeTabData.groupLabel}</p> : null}
-      {activeTabData?.items.length ? (
-        <AccountList items={activeTabData.items} />
-      ) : (
-        <p className="pd-detail-empty">{activeTabData?.emptyLabel ?? '내역이 없어요'}</p>
-      )}
-    </>
-  )
-}
-
-function AccountList({ items }: { items: AccountLineItem[] }) {
-  return (
-    <div className="pd-detail-list">
-      {items.map((item) => (
-        <div className="pd-detail-row" key={item.id}>
-          <span className="pd-detail-row-name">{item.name}</span>
-          <span className="pd-detail-row-trailing">
-            <b>{item.amountLabel}</b>
-            {item.rateLabel ? <em className="rate">{item.rateLabel}</em> : null}
-            {item.deltaLabel ? <em className={item.deltaTone ?? ''}>{item.deltaLabel}</em> : null}
-          </span>
-        </div>
-      ))}
+    <div className="pd-detail-row">
+      <span className="pd-detail-row-name">
+        {item.title}
+        {item.subtitle ? <small>{item.subtitle}</small> : null}
+      </span>
+      <span className="pd-detail-row-trailing">
+        {item.value ? <b>{item.value}</b> : null}
+        {item.caption ? <em className={item.tone === 'warning' ? 'down' : 'rate'}>{item.caption}</em> : null}
+      </span>
     </div>
   )
 }

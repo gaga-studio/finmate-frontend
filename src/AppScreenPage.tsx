@@ -27,13 +27,43 @@ export function AppScreenPage({
     return <CompareFilterPage navigate={navigate} />
   }
   if (route.screen === 'profile-detail') {
-    return <DetailedProfilePage navigate={navigate} />
+    return <LoadedProfileDetailScreen pathname={pathname} route={route} navigate={navigate} />
   }
   if (route.screen === 'profile-detail-asset') {
-    return <AssetCategoryDetailPage categoryId={route.param ?? 'checking'} navigate={navigate} />
+    return <LoadedProfileDetailScreen pathname={pathname} route={route} navigate={navigate} />
   }
 
   return <LoadedAppScreen pathname={pathname} route={route} navigate={navigate} />
+}
+
+function LoadedProfileDetailScreen({
+  pathname,
+  route,
+  navigate,
+}: {
+  pathname: string
+  route: Extract<Route, { name: 'screen' }>
+  navigate: Navigate
+}) {
+  const state = useAppScreen(pathname, route)
+
+  if (state.status === 'loading') {
+    return <LoadingScreen />
+  }
+  if (state.status === 'error') {
+    return <ErrorScreen message={state.message} navigate={navigate} />
+  }
+  if (route.screen === 'profile-detail-asset') {
+    const { targetUserId } = parseProfileAssetParam(route.param)
+    return (
+      <AssetCategoryDetailPage
+        screen={state.screen}
+        backPath={targetUserId ? `/profile/detail/${targetUserId}` : '/profile/detail'}
+        navigate={navigate}
+      />
+    )
+  }
+  return <DetailedProfilePage screen={state.screen} navigate={navigate} />
 }
 
 function LoadedAppScreen({
@@ -120,11 +150,12 @@ function loadScreen(route: Extract<Route, { name: 'screen' }>): Promise<AppScree
     case 'profile-section':
       return api.getAppProfileSection(route.param ?? 'followers')
     case 'profile-detail':
-      // AppScreenPage intercepts this route above; never reached.
-      return api.getAppProfile()
+      return api.getAppProfileDetail(route.param)
     case 'profile-detail-asset':
-      // AppScreenPage intercepts this route above; never reached.
-      return api.getAppProfile()
+      {
+        const { targetUserId, assetId } = parseProfileAssetParam(route.param)
+        return api.getAppProfileAssetDetail(assetId, targetUserId)
+      }
     case 'birthdays':
       return api.getAppBirthdays()
     case 'birthday-flow':
@@ -138,6 +169,17 @@ function loadScreen(route: Extract<Route, { name: 'screen' }>): Promise<AppScree
     case 'birthday-status':
       return api.getMyBirthdayFundStatus()
   }
+}
+
+function parseProfileAssetParam(param?: string) {
+  if (!param) {
+    return { assetId: 'checking' }
+  }
+  const [maybeTargetUserId, maybeAssetId] = param.split('|')
+  if (maybeAssetId) {
+    return { targetUserId: maybeTargetUserId, assetId: maybeAssetId }
+  }
+  return { assetId: maybeTargetUserId }
 }
 
 const defaultCompareFilters: AppCompareSearchRequest = {
