@@ -6,9 +6,11 @@ export type ScreenKey =
   | 'home'
   | 'home-detail'
   | 'compare'
+  | 'compare-group-preview'
   | 'compare-filter'
   | 'compare-results'
   | 'compare-result'
+  | 'compare-personal-flow'
   | 'compare-coach'
   | 'missions'
   | 'mission-add'
@@ -17,6 +19,8 @@ export type ScreenKey =
   | 'record-detail'
   | 'profile'
   | 'profile-section'
+  | 'profile-detail'
+  | 'profile-detail-asset'
   | 'birthdays'
   | 'birthday-flow'
   | 'birthday-complete'
@@ -53,6 +57,12 @@ export function parseRoute(pathname: string): Route {
       : { name: 'screen', screen: 'home' }
   }
   if (parts[0] === 'compare') {
+    if (parts[1] === 'groups' && parts[2] && parts[3] === 'preview') {
+      return { name: 'screen', screen: 'compare-group-preview', param: parts[2] }
+    }
+    if (parts[1] === 'results' && parts[2] && parts[3] === 'me') {
+      return { name: 'screen', screen: 'compare-personal-flow', param: parts[2] }
+    }
     if (parts[1] === 'results' && parts[2]) {
       return { name: 'screen', screen: 'compare-result', param: parts[2] }
     }
@@ -82,6 +92,12 @@ export function parseRoute(pathname: string): Route {
     return parts[1]
       ? { name: 'screen', screen: 'record-detail', param: parts[1] }
       : { name: 'screen', screen: 'records' }
+  }
+  if (parts[0] === 'profile' && parts[1] === 'detail' && parts[2] === 'assets' && parts[3]) {
+    return { name: 'screen', screen: 'profile-detail-asset', param: parts[3] }
+  }
+  if (parts[0] === 'profile' && parts[1] === 'detail') {
+    return { name: 'screen', screen: 'profile-detail' }
   }
   if (parts[0] === 'profile') {
     return parts[1]

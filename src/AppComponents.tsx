@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import type { AppItem, AppMetric } from './types'
 import type { Navigate } from './navigation'
 import { cleanProductCopy } from './productCopy'
@@ -392,6 +392,68 @@ export function CompareActionPanel({
   )
 }
 
+export function CompareReportRow({
+  item,
+  onClick,
+}: {
+  item: AppItem
+  onClick?: () => void
+}) {
+  const mine = numberFromItemData(item, 'mine') ?? numberFromItemData(item, 'progress') ?? 50
+  const group = numberFromItemData(item, 'group') ?? 0
+  const minePosition = clampPercent(numberFromItemData(item, 'minePosition') ?? mine)
+  const rawGroupPosition = numberFromItemData(item, 'groupPosition') ?? group
+  const groupPosition = clampPercent(rawGroupPosition === 0 ? 50 : rawGroupPosition)
+  const deltaLabel = stringFromItemData(item, 'deltaLabel') ?? '그룹과 비교 중이에요'
+  const deltaDirection = stringFromItemData(item, 'deltaDirection') ?? 'same'
+  const gaugeStyle = {
+    '--mine-position': `${minePosition}%`,
+    '--group-position': `${groupPosition}%`,
+    '--diff-start': `${Math.min(minePosition, groupPosition)}%`,
+    '--diff-width': `${Math.abs(minePosition - groupPosition)}%`,
+  } as CSSProperties
+
+  const body = (
+    <>
+      <IconBadge icon={item.icon ?? 'saving'} tone={item.tone ?? 'teal'} />
+      <div className="compare-report-copy">
+        <div className="compare-report-heading">
+          <div>
+            <strong>{cleanCaption(item.title)}</strong>
+            {item.subtitle ? <span>{cleanCaption(item.subtitle)}</span> : null}
+          </div>
+          <div className="compare-report-value">
+            {item.value ? <b>{cleanCaption(item.value)}</b> : null}
+            {item.caption ? <small>{cleanCaption(item.caption)}</small> : null}
+          </div>
+        </div>
+        <div className={`compare-report-gauge ${deltaDirection}`} style={gaugeStyle}>
+          <div className="compare-report-track" aria-label="그룹 평균 대비 내 위치">
+            <span className="compare-report-fill" />
+            <span className="compare-report-baseline"><b>그룹 평균</b></span>
+            <span className="compare-report-marker"><b>나</b></span>
+          </div>
+          <div className="compare-report-scale" aria-hidden="true">
+            <span>낮음</span>
+            <span>높음</span>
+          </div>
+        </div>
+        <span className={`compare-report-pill ${deltaDirection}`}>{cleanCaption(deltaLabel)}</span>
+      </div>
+    </>
+  )
+
+  if (onClick) {
+    return (
+      <button className="compare-report-row" type="button" onClick={onClick}>
+        {body}
+      </button>
+    )
+  }
+
+  return <article className="compare-report-row">{body}</article>
+}
+
 function inferIcon(text: string): string {
   if (text.includes('식비') || text.includes('카페') || text.includes('지출')) {
     return 'spend'
@@ -416,4 +478,18 @@ function inferIcon(text: string): string {
 
 function cleanCaption(caption: string) {
   return cleanProductCopy(caption)
+}
+
+function numberFromItemData(item: AppItem, key: string): number | null {
+  const value = item.data?.[key]
+  return typeof value === 'number' ? value : null
+}
+
+function stringFromItemData(item: AppItem, key: string): string | null {
+  const value = item.data?.[key]
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+function clampPercent(value: number): number {
+  return Math.max(0, Math.min(100, value))
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from './api'
 import { clearSession, getSession, saveSession } from './session'
 import { cleanProductCopy } from './productCopy'
@@ -11,6 +11,7 @@ import {
   IconButton,
   Legend,
   MiniLineChart,
+  BottomNav,
   ProgressLine,
   StatusBar,
   type IconName,
@@ -39,13 +40,11 @@ import {
 } from './AppComponents'
 import {
   BigNumber,
-  CoachBubble,
   CompareGauge,
   FomoCard,
   Logo,
   MissionCard,
   ParticipationBar,
-  PointBadge,
   PointWallet,
   ProfileCard,
   ReportCard,
@@ -61,6 +60,7 @@ type SectionProps = {
 }
 
 type CompareMainTab = 'group' | 'filter' | 'friends'
+type MissionsMainTab = 'active' | 'available' | 'completed'
 
 type InlineScreenState =
   | { status: 'loading' }
@@ -78,6 +78,22 @@ export function ScreenRenderer({ screen, navigate }: { screen: AppScreenResponse
 
   if (screen.screenId === 'compare') {
     return <CompareMainScreen screen={screen} navigate={navigate} />
+  }
+
+  if (screen.screenId.startsWith('compare:group-preview')) {
+    return <CompareGroupPreviewScreen screen={screen} navigate={navigate} />
+  }
+
+  if (screen.screenId.startsWith('compare:personal')) {
+    return <ComparePersonalFlowScreen screen={screen} navigate={navigate} />
+  }
+
+  if (screen.screenId.startsWith('compare:') && screen.sections.some((section) => section.kind === 'compareReportHero')) {
+    return <CompareReferenceReportScreen screen={screen} navigate={navigate} />
+  }
+
+  if (screen.screenId === 'missions') {
+    return <MissionsMainScreen screen={screen} navigate={navigate} />
   }
 
   if (screen.screenId === 'profile') {
@@ -99,7 +115,6 @@ export function ScreenRenderer({ screen, navigate }: { screen: AppScreenResponse
         </div>
         <h1>{screenTitle}</h1>
         <div className="header-side right">
-          <PointBadge balance={getSession().user?.pointBalance ?? 0} />
           <IconButton icon={headerIcon(screen)} label="메뉴" onClick={() => navigate(headerPath(screen))} />
         </div>
       </header>
@@ -299,8 +314,9 @@ function HomeEmptyCard({ section, navigate }: SectionProps) {
 function CompareMainScreen({ screen, navigate }: { screen: AppScreenResponse; navigate: Navigate }) {
   const [activeTab, setActiveTab] = useState<CompareMainTab>('group')
   const recommended = screen.sections.find((section) => section.kind === 'compareGroupRail')
+  const prompt = screen.sections.find((section) => section.kind === 'comparePrompt')
   const saved = screen.sections.find((section) => section.kind === 'savedCompareGroups')
-  const rest = screen.sections.filter((section) => ![recommended, saved].includes(section))
+  const rest = screen.sections.filter((section) => ![recommended, prompt, saved].includes(section))
 
   return (
     <div className={`screen screen-compare screen-tab-main screen-compare-main ${screenClass(screen.screenId)}`}>
@@ -331,6 +347,7 @@ function CompareMainScreen({ screen, navigate }: { screen: AppScreenResponse; na
       >
         {activeTab === 'group' ? (
           <>
+            {prompt ? <ComparePromptSection section={prompt} navigate={navigate} /> : null}
             {recommended ? <CompareGroupRailSection section={recommended} navigate={navigate} /> : null}
             {saved ? <SavedCompareGroupsSection section={saved} navigate={navigate} /> : null}
             {rest.map((section) => <SectionRenderer section={section} navigate={navigate} screen={screen} key={section.id} />)}
@@ -356,6 +373,560 @@ function CompareFriendsPanel({ navigate }: { navigate: Navigate }) {
   return (
     <div className="inline-tab-panel compare-friends-panel">
       {relationshipList ? <ProfileRelationshipList section={relationshipList} navigate={navigate} /> : <EmptyInlineTab title="공개 친구 활동이 아직 없어요" />}
+    </div>
+  )
+}
+
+function CompareFlowHeader({ title, onBack }: { title: string; onBack: () => void }) {
+  return (
+    <header className="compare-flow-header">
+      <IconButton icon="back" label="뒤로" onClick={onBack} />
+      <h1>{title}</h1>
+      <span aria-hidden="true" />
+    </header>
+  )
+}
+
+function CompareGroupPreviewScreen({ screen, navigate }: { screen: AppScreenResponse; navigate: Navigate }) {
+  const hero = screen.sections.find((section) => section.kind === 'compareGroupPreviewHero')
+  const features = screen.sections.find((section) => section.kind === 'compareGroupPreviewFeatures')
+  const filters = compareFiltersFromData(recordFromData(screen.meta, 'filters'))
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  const goBack = () => {
+    if (window.history.length > 1) {
+      window.history.back()
+      return
+    }
+    navigate('/compare')
+  }
+
+  const createGroup = async () => {
+    if (!filters) {
+      setNotice('그룹 조건을 불러오지 못했어요. 비교 탭에서 다시 선택해주세요.')
+      return
+    }
+    setBusy(true)
+    setNotice(null)
+    try {
+      const result = await api.createAppCompareGroup(filters)
+      if (result.nextPath) {
+        navigate(result.nextPath)
+        return
+      }
+      setNotice(result.message)
+    } catch {
+      setNotice('리포트를 만들지 못했어요. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className={`screen screen-compare compare-flow-screen compare-preview-screen ${screenClass(screen.screenId)}`}>
+      <StatusBar time={screen.statusBarTime} />
+      <CompareFlowHeader title="그룹 미리보기" onBack={goBack} />
+      <section className="compare-flow-body compare-preview-body">
+        {hero ? <CompareFlowIdentity section={hero} /> : null}
+        <section className="compare-preview-feature-card">
+          <h2>{features?.title ?? '이 그룹의 핵심 특징'}</h2>
+          <p>리포트를 보기 전에 비교 기준이 나와 맞는지 먼저 확인해요.</p>
+          <div className="compare-preview-feature-list">
+            {(features?.items ?? []).map((item) => (
+              <div className="compare-preview-feature-row" key={item.id}>
+                <IconBadge icon={item.icon ?? 'check'} tone="teal" />
+                <div>
+                  <strong>{item.title}</strong>
+                  {item.subtitle ? <span>{item.subtitle}</span> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </section>
+      <div className="compare-flow-bottom-cta">
+        {notice ? <p className="inline-notice compare-flow-notice" role="alert">{notice}</p> : null}
+        <button className="app-button primary compare-flow-primary" type="button" disabled={busy} onClick={() => { void createGroup() }}>
+          {busy ? '리포트 만드는 중' : '이 그룹 리포트 보기'}
+        </button>
+      </div>
+      <BottomNav active="compare" navigate={navigate} />
+    </div>
+  )
+}
+
+function CompareReferenceReportScreen({ screen, navigate }: { screen: AppScreenResponse; navigate: Navigate }) {
+  const hero = screen.sections.find((section) => section.kind === 'compareReportHero')
+  const summary = screen.sections.find((section) => section.kind === 'compareReportSummary')
+  const metrics = screen.sections.find((section) => section.kind === 'compareReportMetricGrid')
+  const distribution = screen.sections.find((section) => section.kind === 'compareSpendingDistribution')
+  const members = screen.sections.find((section) => section.kind === 'compareGroupMembers')
+  const comparisonId = stringFromData(screen.meta, 'comparisonId') ?? screen.screenId.replace(/^compare:/, '')
+
+  const goBack = () => {
+    if (window.history.length > 1) {
+      window.history.back()
+      return
+    }
+    navigate('/compare')
+  }
+
+  return (
+    <div className={`screen screen-compare compare-flow-screen compare-report-screen ${screenClass(screen.screenId)}`}>
+      <StatusBar time={screen.statusBarTime} />
+      <CompareFlowHeader title="그룹 리포트" onBack={goBack} />
+      <section className="compare-flow-body compare-report-body">
+        {hero ? <CompareFlowIdentity section={hero} /> : null}
+        <section className="compare-report-summary-panel">
+          <strong>{summary?.title ?? '한 줄 요약'}</strong>
+          <p>{summary?.subtitle ?? '이 그룹의 금융 특징과 인사이트를 확인해요.'}</p>
+        </section>
+        {metrics ? <CompareReportMetricGrid section={metrics} /> : null}
+        {distribution ? <CompareReportDistribution section={distribution} /> : null}
+        {members ? <CompareGroupMembersSection section={members} /> : null}
+      </section>
+      <div className="compare-report-sticky-cta">
+        <button className="app-button primary compare-flow-primary" type="button" onClick={() => navigate(`/compare/results/${comparisonId}/me`)}>
+          나와 비교하기
+        </button>
+      </div>
+      <BottomNav active="compare" navigate={navigate} />
+    </div>
+  )
+}
+
+type ComparePersonalStep = 'summary' | 'insights' | 'recommendations' | 'saved'
+
+const comparePersonalSteps: Array<{ id: ComparePersonalStep; label: string }> = [
+  { id: 'summary', label: '요약' },
+  { id: 'insights', label: '인사이트' },
+  { id: 'recommendations', label: '추천 금융' },
+  { id: 'saved', label: '저장' },
+]
+
+type CompareSaveState =
+  | { status: 'idle' }
+  | { status: 'saving' }
+  | { status: 'saved'; message: string }
+  | { status: 'error'; message: string }
+
+function ComparePersonalFlowScreen({ screen, navigate }: { screen: AppScreenResponse; navigate: Navigate }) {
+  const [stepIndex, setStepIndex] = useState(0)
+  const [saveState, setSaveState] = useState<CompareSaveState>({ status: 'idle' })
+  const screenRef = useRef<HTMLDivElement>(null)
+  const comparisonId = stringFromData(screen.meta, 'comparisonId') ?? screen.screenId.replace(/^compare:personal:/, '')
+  const summary = screen.sections.find((section) => section.kind === 'comparePersonalSummary')
+  const insights = screen.sections.find((section) => section.kind === 'comparePersonalInsights')
+  const improvements = screen.sections.find((section) => section.kind === 'comparePersonalImprovements')
+  const recommendations = screen.sections.find((section) => section.kind === 'comparePersonalRecommendations')
+  const saved = screen.sections.find((section) => section.kind === 'comparePersonalSave')
+  const empty = screen.sections.find((section) => section.kind === 'actionCard')
+  const currentStep = comparePersonalSteps[stepIndex]
+  const currentTitle = currentStep.id === 'summary'
+    ? '나와의 비교'
+    : currentStep.id === 'insights'
+      ? '이 그룹에서 얻을 수 있는 인사이트'
+      : currentStep.id === 'recommendations'
+        ? '추천 금융'
+        : '리포트 저장 완료'
+
+  useEffect(() => {
+    screenRef.current?.scrollTo({ top: 0 })
+  }, [stepIndex])
+
+  useEffect(() => {
+    if (currentStep.id !== 'saved' || saveState.status !== 'idle') {
+      return
+    }
+    setSaveState({ status: 'saving' })
+    api.saveAppCompareReport(comparisonId)
+      .then((result) => {
+        setSaveState({ status: 'saved', message: result.message })
+      })
+      .catch((error: unknown) => {
+        setSaveState({ status: 'error', message: describeError(error) })
+      })
+  }, [comparisonId, currentStep.id, saveState.status])
+
+  const goBack = () => {
+    if (stepIndex > 0) {
+      setStepIndex((index) => index - 1)
+      return
+    }
+    navigate(`/compare/results/${comparisonId}`)
+  }
+
+  const goNext = () => {
+    setStepIndex((index) => Math.min(comparePersonalSteps.length - 1, index + 1))
+  }
+
+  if (!summary && empty) {
+    const primaryAction = empty.actions?.[0]
+    const nextPath = primaryAction?.path ?? empty.detailPath ?? '/compare'
+    return (
+      <div ref={screenRef} className={`screen screen-compare compare-flow-screen compare-personal-screen ${screenClass(screen.screenId)}`}>
+        <StatusBar time={screen.statusBarTime} />
+        <CompareFlowHeader title="나와의 비교" onBack={() => navigate('/compare')} />
+        <section className="compare-personal-body">
+          <EmptyState title={empty.title} subtitle={empty.subtitle ?? empty.metrics?.[0]?.caption} icon={stringFromData(empty.data, 'icon') ?? 'chart'} />
+        </section>
+        <div className="compare-personal-bottom-cta">
+          <button className="app-button primary compare-flow-primary" type="button" onClick={() => navigate(nextPath)}>
+            {primaryAction?.label ?? '비교 탭으로 돌아가기'}
+          </button>
+        </div>
+        <BottomNav active="compare" navigate={navigate} />
+      </div>
+    )
+  }
+
+  return (
+    <div ref={screenRef} className={`screen screen-compare compare-flow-screen compare-personal-screen ${screenClass(screen.screenId)}`}>
+      <StatusBar time={screen.statusBarTime} />
+      <CompareFlowHeader title={currentTitle} onBack={goBack} />
+      <ComparePersonalProgressRail currentIndex={stepIndex} />
+      <section className="compare-personal-body">
+        {currentStep.id === 'summary' ? <ComparePersonalSummaryStep section={summary} /> : null}
+        {currentStep.id === 'insights' ? <ComparePersonalInsightsStep insights={insights} improvements={improvements} /> : null}
+        {currentStep.id === 'recommendations' ? <ComparePersonalRecommendationsStep section={recommendations} navigate={navigate} /> : null}
+        {currentStep.id === 'saved' ? <ComparePersonalSavedStep section={saved} saveState={saveState} /> : null}
+      </section>
+      <div className="compare-personal-bottom-cta">
+        {currentStep.id === 'saved' ? (
+          <>
+            {saveState.status === 'error' ? (
+              <button
+                className="app-button primary compare-flow-primary"
+                type="button"
+                onClick={() => {
+                  setSaveState({ status: 'idle' })
+                }}
+              >
+                다시 저장하기
+              </button>
+            ) : (
+              <button className="app-button primary compare-flow-primary" type="button" disabled={saveState.status === 'saving'} onClick={() => navigate('/profile')}>
+                {saveState.status === 'saving' ? '저장 중' : '마이 리포트 확인하기'}
+              </button>
+            )}
+            <button className="app-button secondary compare-personal-secondary" type="button" onClick={() => navigate(`/compare/results/${comparisonId}`)}>
+              그룹 리포트로 돌아가기
+            </button>
+          </>
+        ) : (
+          <button className="app-button primary compare-flow-primary" type="button" onClick={goNext}>
+            다음으로
+          </button>
+        )}
+      </div>
+      <BottomNav active="compare" navigate={navigate} />
+    </div>
+  )
+}
+
+function ComparePersonalSummaryStep({ section }: { section?: AppSection }) {
+  const items = section?.items ?? []
+  const grouped = groupPersonalItems(items)
+
+  return (
+    <>
+      <section className="compare-personal-lead">
+        <h2>그룹과 내 주요 지표를 한눈에 비교해요</h2>
+        <p>{section?.subtitle ?? '정확한 개인 금액은 나에게만 보이고, 그룹 값은 익명 평균으로 표시됩니다.'}</p>
+      </section>
+      {Object.entries(grouped).map(([category, categoryItems]) => (
+        <section className="compare-personal-table" key={category}>
+          <h3>{category}</h3>
+          <div className="compare-personal-table-head" aria-hidden="true">
+            <span />
+            <b>나</b>
+            <b>그룹 평균</b>
+          </div>
+          {categoryItems.map((item) => (
+            <div className="compare-personal-row" key={item.id}>
+              <span>{item.title}</span>
+              <strong>{item.value ?? '-'}</strong>
+              <strong>{item.caption ?? '-'}</strong>
+            </div>
+          ))}
+        </section>
+      ))}
+      {stringFromData(section?.data, 'summary') ? (
+        <div className="compare-personal-note">{stringFromData(section?.data, 'summary')}</div>
+      ) : null}
+    </>
+  )
+}
+
+function ComparePersonalInsightsStep({ insights, improvements }: { insights?: AppSection; improvements?: AppSection }) {
+  return (
+    <>
+      <section className="compare-personal-lead">
+        <h2>이 그룹에서 얻을 수 있는 인사이트</h2>
+        <p>{insights?.subtitle ?? '강점은 유지하고, 이번 달 바로 바꿀 수 있는 지점만 추렸어요.'}</p>
+      </section>
+      <div className="compare-personal-insight-list">
+        {(insights?.items ?? []).map((item) => (
+          <article className="compare-personal-insight-card" key={item.id}>
+            <IconBadge icon={(item.icon ?? 'check') as IconName} tone={item.tone ?? 'teal'} />
+            <div>
+              <strong>{item.title}</strong>
+              {item.subtitle ? <p>{item.subtitle}</p> : null}
+            </div>
+          </article>
+        ))}
+      </div>
+      <section className="compare-personal-improvement-panel">
+        <h2>{improvements?.title ?? '나의 개선 포인트 TOP 3'}</h2>
+        <div>
+          {(improvements?.items ?? []).map((item, index) => (
+            <p key={item.id}>
+              <b>{numberFromData(item.data, 'rank') ?? index + 1}</b>
+              <span>{item.title}</span>
+            </p>
+          ))}
+        </div>
+      </section>
+    </>
+  )
+}
+
+function ComparePersonalRecommendationsStep({ section, navigate }: { section?: AppSection; navigate: Navigate }) {
+  return (
+    <>
+      <section className="compare-personal-lead">
+        <h2>이 그룹을 참고한 다음 행동</h2>
+        <p>{section?.subtitle ?? '상품 권유가 아니라, 지금 시작하기 쉬운 금융 행동만 추천해요.'}</p>
+      </section>
+      <div className="compare-personal-recommendation-list">
+        {(section?.items ?? []).map((item, index) => (
+          <article className="compare-personal-recommendation-card" key={item.id}>
+            <div className="compare-personal-rank">{numberFromData(item.data, 'rank') ?? index + 1}</div>
+            <div>
+              <h3>{item.title}</h3>
+              {item.subtitle ? <p>{item.subtitle}</p> : null}
+              <div className="compare-personal-tags">
+                {stringArrayFromData(item.data, 'tags').map((tag) => <span key={tag}>{tag}</span>)}
+              </div>
+            </div>
+            {item.detailPath ? (
+              <button type="button" onClick={() => navigate(item.detailPath ?? '/missions')}>
+                더 자세히 알아보기 <Chevron />
+              </button>
+            ) : null}
+          </article>
+        ))}
+      </div>
+      {stringFromData(section?.data, 'disclaimer') ? (
+        <p className="compare-personal-disclaimer">{stringFromData(section?.data, 'disclaimer')}</p>
+      ) : null}
+    </>
+  )
+}
+
+function ComparePersonalSavedStep({ section, saveState }: { section?: AppSection; saveState: CompareSaveState }) {
+  const savedMessage = saveState.status === 'error'
+    ? saveState.message
+    : saveState.status === 'saving'
+      ? '리포트를 저장하고 있어요.'
+      : saveState.status === 'saved'
+        ? saveState.message
+        : '리포트를 저장할 준비를 하고 있어요.'
+
+  return (
+    <section className="compare-personal-saved">
+      <div className="compare-personal-check" aria-hidden="true">
+        <svg viewBox="0 0 64 64" focusable="false">
+          <circle cx="32" cy="32" r="30" />
+          <path d="m18 33 9 9 20-23" />
+        </svg>
+      </div>
+      <h2>{section?.title ?? '리포트 저장 완료'}</h2>
+      <p>{savedMessage}</p>
+      <section className="compare-personal-saved-card">
+        <strong>저장한 리포트</strong>
+        {(section?.metrics ?? []).map((metric) => (
+          <div key={metric.label}>
+            <span>{metric.label}</span>
+            <b>{metric.value}</b>
+            {metric.caption ? <small>{metric.caption}</small> : null}
+          </div>
+        ))}
+      </section>
+    </section>
+  )
+}
+
+function ComparePersonalProgressRail({ currentIndex }: { currentIndex: number }) {
+  const currentStep = comparePersonalSteps[currentIndex]
+  const progress = ((currentIndex + 1) / comparePersonalSteps.length) * 100
+
+  return (
+    <section className="compare-personal-progress" aria-label="나와 비교하기 진행 단계">
+      <div className="compare-personal-progress-meta">
+        <span className="compare-personal-progress-count">{currentIndex + 1}/{comparePersonalSteps.length}</span>
+        <strong className="compare-personal-progress-label">{currentStep.label}</strong>
+      </div>
+      <ProgressLine value={progress} tone="teal" />
+    </section>
+  )
+}
+
+function CompareFlowIdentity({ section }: { section: AppSection }) {
+  return (
+    <section className="compare-flow-identity">
+      <IconBadge icon={stringFromData(section.data, 'icon') ?? 'profile'} tone="teal" />
+      <div>
+        <h2>{section.title}</h2>
+        {section.subtitle ? <p>{section.subtitle}</p> : null}
+      </div>
+    </section>
+  )
+}
+
+function CompareReportMetricGrid({ section }: { section: AppSection }) {
+  return (
+    <section className="compare-report-section">
+      <h2>{section.title}</h2>
+      <div className="compare-report-metric-grid">
+        {(section.metrics ?? []).map((metric) => (
+          <div className="compare-report-metric-card" key={metric.label}>
+            <span>{metric.label}</span>
+            <strong>{metric.value}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function CompareReportDistribution({ section }: { section: AppSection }) {
+  const items = section.items ?? []
+  return (
+    <section className="compare-report-section compare-report-distribution">
+      <h2>{section.title}</h2>
+      <div className="compare-report-donut-row">
+        <div className="compare-report-donut" style={{ background: distributionBackground(items) }} aria-hidden="true">
+          <span />
+        </div>
+        <div className="compare-report-legend">
+          {items.map((item, index) => (
+            <div className="compare-report-legend-row" data-index={index} key={item.id}>
+              <span>{item.title}</span>
+              <strong>{item.caption ?? item.value}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function MissionsMainScreen({ screen, navigate }: { screen: AppScreenResponse; navigate: Navigate }) {
+  const [activeTab, setActiveTab] = useState<MissionsMainTab>('active')
+  const mission = screen.sections.find((section) => section.kind === 'missionHero')
+  const points = screen.sections.find((section) => section.kind === 'points')
+  const active = screen.sections.find((section) => section.id === 'active')
+  const add = screen.sections.find((section) => section.id === 'add')
+  const completed = screen.sections.find((section) => section.id === 'completed')
+
+  return (
+    <div className={`screen screen-mission screen-tab-main screen-missions-main ${screenClass(screen.screenId)}`}>
+      <StatusBar time={screen.statusBarTime} />
+      <TabMainHeader
+        title="작은 행동이 큰 변화를 만들어요"
+        subtitle="오늘 할 일 하나, 받을 보상 하나를 먼저 확인해요."
+        icon="gift"
+        iconLabel="다음 목표"
+        onIconClick={() => navigate('/missions/next-goals')}
+      />
+      <SegmentedControl
+        activeId={activeTab}
+        onChange={(id) => setActiveTab(id as MissionsMainTab)}
+        ariaLabel="미션 보기"
+        panelPrefix="missions-main"
+        items={[
+          { id: 'active', label: '진행 중' },
+          { id: 'available', label: '참여 가능한 미션' },
+          { id: 'completed', label: '완료' },
+        ]}
+      />
+      <section
+        className="screen-stack tab-main-stack missions-main-stack"
+        role="tabpanel"
+        id={`missions-main-panel-${activeTab}`}
+        aria-labelledby={`missions-main-tab-${activeTab}`}
+      >
+        {activeTab === 'active' ? (
+          <>
+            <MissionPointsPanel section={points} navigate={navigate} mission={mission} onAvailableClick={() => setActiveTab('available')} />
+            {mission ? <MissionHero section={mission} navigate={navigate} variant="today" /> : null}
+            {active ? <MissionActiveListSection section={active} navigate={navigate} /> : <EmptyInlineTab title="진행 중인 미션을 더 추가해보세요" subtitle="추천 미션에서 지금 바로 시작할 수 있는 행동을 골라보세요." />}
+          </>
+        ) : null}
+        {activeTab === 'available' ? <MissionAvailablePanel fallbackSection={add} navigate={navigate} /> : null}
+        {activeTab === 'completed' ? (
+          completed ? <MissionListSection section={completed} navigate={navigate} /> : <EmptyInlineTab title="완료된 미션이 아직 없어요" subtitle="작은 행동 하나를 끝내면 이곳에 실천 기록이 쌓여요." />
+        ) : null}
+      </section>
+    </div>
+  )
+}
+
+function MissionPointsPanel({
+  section,
+  navigate,
+  mission,
+  onAvailableClick,
+}: {
+  section?: AppSection
+  navigate: Navigate
+  mission?: AppSection
+  onAvailableClick?: () => void
+}) {
+  const pointMetric = section?.metrics?.[0]
+  const pointBalance = getSession().user?.pointBalance ?? 0
+  const missionReward = mission?.metrics?.[0]?.caption
+
+  return (
+    <AppSectionCard className="mission-points-panel">
+      <div className="mission-points-layout">
+        <IconBadge icon="spark" tone="teal" />
+        <div>
+          <span>{pointMetric?.label ?? '보유 포인트'}</span>
+          <strong>{pointMetric?.value ?? `${pointBalance}P`}</strong>
+          <p>{missionReward ? `오늘 미션 보상은 ${missionReward}입니다.` : pointMetric?.caption ?? '행동 데이터가 검증되면 자동 적립됩니다.'}</p>
+        </div>
+      </div>
+      <button className="mission-points-action" type="button" onClick={onAvailableClick ?? (() => navigate('/missions/add'))}>
+        참여 가능한 미션 보기
+        <Chevron />
+      </button>
+    </AppSectionCard>
+  )
+}
+
+function MissionAvailablePanel({ fallbackSection, navigate }: { fallbackSection?: AppSection; navigate: Navigate }) {
+  const loadMissionAdd = useCallback(() => api.getAppMissionAdd(), [])
+  const state = useInlineScreen('mission-add', loadMissionAdd)
+
+  if (state.status !== 'ready') {
+    if (state.status === 'error' && fallbackSection) {
+      return (
+        <div className="inline-tab-panel mission-available-panel">
+          <ListSection section={fallbackSection} navigate={navigate} />
+        </div>
+      )
+    }
+    return <InlineTabState state={state} loadingTitle="참여 가능한 미션을 불러오는 중이에요" />
+  }
+
+  return (
+    <div className="inline-tab-panel mission-available-panel">
+      {state.screen.sections.map((section) => (
+        <ListSection section={section} navigate={navigate} key={section.id} />
+      ))}
     </div>
   )
 }
@@ -415,6 +986,7 @@ function ProfileHeroPanel({ trust, account }: { trust?: AppSection; account?: Ap
 function ProfileShortcutGrid({ navigate }: { navigate: Navigate }) {
   const shortcuts = [
     { id: 'info', label: '내 정보', icon: 'profile', path: '/settings/privacy' },
+    { id: 'detail', label: '상세 프로필', icon: 'stocks', path: '/profile/detail' },
     { id: 'report', label: '내 리포트', icon: 'chart', path: '/compare/coach' },
     { id: 'points', label: '포인트', icon: 'spark', path: '/profile/points' },
     { id: 'friends', label: '친구', icon: 'profile', path: '/profile/following' },
@@ -578,6 +1150,11 @@ function SectionRenderer({ section, navigate, screen }: { section: AppSection; n
   const isProfileScreen = screen?.tab === 'profile'
   const isRecordsScreen = screen?.tab === 'records'
   const isMissionScreen = screen?.tab === 'mission'
+  const isMissionDetailScreen = Boolean(
+    screen
+    && screen.tab === 'mission'
+    && !['missions', 'missions:add', 'missions:next-goals'].includes(screen.screenId)
+  )
 
   if (section.kind === 'greeting' || section.kind === 'lead') {
     return <LeadSection section={section} />
@@ -598,7 +1175,7 @@ function SectionRenderer({ section, navigate, screen }: { section: AppSection; n
     return <CompareProfileListSection section={section} navigate={navigate} />
   }
   if (section.kind === 'compareGroupMembers') {
-    return <CompareGroupMembersSection section={section} navigate={navigate} />
+    return <CompareGroupMembersSection section={section} />
   }
   if (section.kind === 'profileSegmented') {
     return <ProfileSegmentedControl section={section} navigate={navigate} />
@@ -621,8 +1198,17 @@ function SectionRenderer({ section, navigate, screen }: { section: AppSection; n
   if (section.kind === 'missionHero') {
     return <MissionHero section={section} navigate={navigate} />
   }
+  if (isMissionDetailScreen && section.kind === 'missionEvidence') {
+    return <MissionEvidenceSection section={section} navigate={navigate} />
+  }
+  if (isMissionDetailScreen && section.kind === 'list') {
+    return <MissionEvidenceListSection section={section} navigate={navigate} />
+  }
   if (isMissionScreen && section.kind === 'loop') {
     return <MissionLoopSection />
+  }
+  if (screen?.screenId === 'missions:next-goals' && section.kind === 'list') {
+    return <MissionActiveListSection section={section} navigate={navigate} />
   }
   if (isMissionScreen && section.kind === 'list') {
     return <MissionListSection section={section} navigate={navigate} />
@@ -664,7 +1250,7 @@ function SectionRenderer({ section, navigate, screen }: { section: AppSection; n
     return <BirthdayCompleteSection section={section} navigate={navigate} />
   }
   if (section.kind === 'coach') {
-    return <CoachSection section={section} navigate={navigate} />
+    return <IllustratedSection section={section} navigate={navigate} />
   }
   if (section.kind === 'points' || section.kind === 'profileHero' || section.kind === 'actionCard') {
     return <MetricCardSection section={section} navigate={navigate} />
@@ -965,13 +1551,20 @@ function BirthdayParticipantRows({ items }: { items: AppItem[] }) {
   )
 }
 
-function MissionHero({ section, navigate }: SectionProps) {
+function MissionHero({ section, navigate, variant = 'default' }: SectionProps & { variant?: 'default' | 'today' }) {
   const metric = section.metrics?.[0]
-  const todayReason = stringFromData(section.data, 'todayReason')
-  const statusLabel = stringFromData(section.data, 'statusLabel') ?? section.subtitle ?? '진행 중'
-  const evaluationStatus = stringFromData(section.data, 'evaluationStatus') ?? 'IN_PROGRESS'
+  const isToday = variant === 'today'
+  const todayReason = isToday
+    ? '오늘 기록에서 이어서 확인할 실천 목표예요.'
+    : stringFromData(section.data, 'todayReason')
+  const statusLabel = isToday
+    ? '오늘의 미션'
+    : stringFromData(section.data, 'statusLabel') ?? section.subtitle ?? '진행 중'
+  const evaluationStatus = isToday
+    ? 'TODAY'
+    : stringFromData(section.data, 'evaluationStatus') ?? 'IN_PROGRESS'
   return (
-    <AppSectionCard className="mission-focus-panel">
+    <AppSectionCard className={`mission-focus-panel ${isToday ? 'is-today-mission' : ''}`}>
       <button className="mission-focus-hero" type="button" onClick={() => goDetail(section, navigate)}>
         <div>
           <span className="mission-state-chip" data-state={evaluationStatus}>{statusLabel}</span>
@@ -987,6 +1580,100 @@ function MissionHero({ section, navigate }: SectionProps) {
         ) : <Chevron />}
       </button>
       <ProgressLine value={metric?.progress ?? 0} tone="teal" />
+      <ActionButtons actions={section.actions} navigate={navigate} />
+    </AppSectionCard>
+  )
+}
+
+function MissionEvidenceSection({ section, navigate }: SectionProps) {
+  const progress = numberFromData(section.data, 'progress') ?? section.metrics?.find((metric) => typeof metric.progress === 'number')?.progress ?? 0
+  const note = stringFromData(section.data, 'note')
+
+  return (
+    <AppSectionCard className="mission-evidence-panel">
+      <SectionHeading
+        eyebrow="판정 기준"
+        title={section.title}
+        subtitle={section.subtitle ?? '완료 버튼 없이 행동 데이터만으로 자동 판정합니다.'}
+        onAction={section.detailPath ? () => navigate(section.detailPath ?? '/records') : undefined}
+        actionLabel="기록 보기"
+      />
+      <div className="mission-evidence-strip">
+        {section.metrics?.map((metric) => (
+          <div className="mission-evidence-cell" data-tone={metric.tone ?? 'default'} key={metric.label}>
+            <span>{cleanCaption(metric.label)}</span>
+            <strong>{cleanCaption(metric.value)}</strong>
+            {metric.caption ? <small>{cleanCaption(metric.caption)}</small> : null}
+          </div>
+        ))}
+      </div>
+      <ProgressLine value={progress} tone="teal" />
+      {note ? <p className="mission-evidence-note">{note}</p> : null}
+      <ActionButtons actions={section.actions} navigate={navigate} />
+    </AppSectionCard>
+  )
+}
+
+function MissionEvidenceListSection({ section, navigate }: SectionProps) {
+  return (
+    <AppSectionCard className={`mission-proof-panel section-${section.id}`}>
+      <SectionHeading
+        eyebrow="근거 데이터"
+        title={section.title}
+        subtitle={section.subtitle ?? '개별 가맹점 대신 행동 단위 증거만 보여줍니다.'}
+        onAction={section.detailPath ? () => navigate(section.detailPath ?? '/records') : undefined}
+        actionLabel="기록 보기"
+      />
+      <div className="record-event-list activity-list">
+        {section.items?.map((item, index) => (
+          <ActivityRow
+            item={{
+              ...item,
+              title: cleanCaption(item.title),
+              subtitle: item.subtitle ? cleanCaption(item.subtitle) : item.subtitle,
+              value: item.value ? cleanCaption(item.value) : item.value,
+              caption: item.caption ? cleanCaption(item.caption) : item.caption,
+            }}
+            navigate={navigate}
+            icon={item.icon ?? 'check-square'}
+            tone={item.tone ?? 'teal'}
+            rank={section.kind === 'rankList' ? index + 1 : null}
+            key={item.id}
+          />
+        ))}
+      </div>
+      <ActionButtons actions={section.actions} navigate={navigate} />
+    </AppSectionCard>
+  )
+}
+
+function MissionActiveListSection({ section, navigate }: SectionProps) {
+  const eyebrow = section.id === 'next' ? '목록' : '진행 중'
+  return (
+    <AppSectionCard className={`mission-active-panel section-${section.id}`}>
+      <SectionHeading
+        eyebrow={eyebrow}
+        title={section.title}
+        subtitle={section.subtitle ?? '오늘의 미션을 제외한 나머지 진행 중 목표예요.'}
+      />
+      <div className="mission-active-list">
+        {section.items?.map((item) => (
+          <button className="mission-active-row" type="button" onClick={() => item.detailPath && navigate(item.detailPath)} key={item.id}>
+            <div className="mission-active-icon">
+              <IconBadge icon={item.icon ?? 'check-square'} tone={item.tone ?? 'warning'} />
+            </div>
+            <div className="mission-active-copy">
+              <strong>{cleanCaption(item.title)}</strong>
+              {item.subtitle ? <p>{cleanCaption(item.subtitle)}</p> : null}
+            </div>
+            <div className="mission-active-metrics">
+              {item.value ? <strong>{cleanCaption(item.value)}</strong> : null}
+              {item.caption ? <em>{cleanCaption(item.caption)}</em> : null}
+            </div>
+            <Chevron />
+          </button>
+        ))}
+      </div>
       <ActionButtons actions={section.actions} navigate={navigate} />
     </AppSectionCard>
   )
@@ -1283,19 +1970,32 @@ function CalendarSection({ section, navigate }: SectionProps) {
   )
 }
 
-function CoachSection({ section, navigate }: SectionProps) {
-  const missionAction = section.actions?.[0]
+function IllustratedSection({ section, navigate }: SectionProps) {
+  const icon = section.kind === 'coach' ? 'spark' : 'gift'
+  const tone = 'teal'
   return (
-    <AppSectionCard className={`coach-card section-${section.id}`}>
-      <SectionHeading eyebrow="코치 요약" title={section.title} />
-      <CoachBubble
-        message={section.subtitle ?? '오늘 데이터를 보고 있어요.'}
-        ctaLabel={missionAction?.label ?? '미션 시작'}
-        onCta={() => navigate(missionAction?.path ?? '/missions')}
+    <AppSectionCard className={`illustrated-card ${section.kind} section-${section.id} event-panel`}>
+      <SectionHeading
+        eyebrow={section.kind === 'coach' ? '코치 요약' : '생일 펀드'}
+        title={section.title}
+        onAction={section.detailPath ? () => navigate(section.detailPath ?? '/home') : undefined}
+        actionLabel="보기"
       />
+      <div className="illustrated-layout">
+        <IconBadge icon={icon} tone={tone} />
+        <div>
+          {section.subtitle ? <p>{section.subtitle}</p> : null}
+          <div className="finance-metric-grid compact">
+            {section.metrics?.map((metric) => (
+              <FinanceMetricCard metric={metric} key={metric.label} />
+            ))}
+          </div>
+        </div>
+      </div>
       {section.metrics?.[0]?.progress ? (
         <ProgressLine value={section.metrics[0].progress ?? 0} tone="teal" />
       ) : null}
+      <ActionButtons actions={section.actions} navigate={navigate} />
     </AppSectionCard>
   )
 }
@@ -1382,34 +2082,6 @@ function participationRate(item: AppItem): number {
 }
 
 function CompareGroupRailSection({ section, navigate }: SectionProps) {
-  const [pendingId, setPendingId] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
-
-  const handleRecommendedGroupClick = async (item: AppItem) => {
-    const filters = compareFiltersFromItem(item)
-    if (!filters) {
-      if (item.detailPath) {
-        navigate(item.detailPath)
-      }
-      return
-    }
-
-    setPendingId(item.id)
-    setNotice(null)
-    try {
-      const result = await api.createAppCompareGroup(filters)
-      if (result.nextPath) {
-        navigate(result.nextPath)
-        return
-      }
-      setNotice(result.message)
-    } catch {
-      setNotice('추천 그룹을 불러오지 못했어요. 잠시 후 다시 시도해주세요.')
-    } finally {
-      setPendingId(null)
-    }
-  }
-
   return (
     <AppSectionCard className="compare-group-section compare-section-card">
       <SectionHeading eyebrow="추천 비교군" title={section.title} subtitle={section.subtitle} onAction={section.detailPath ? () => navigate(section.detailPath ?? '/compare') : undefined} />
@@ -1417,14 +2089,12 @@ function CompareGroupRailSection({ section, navigate }: SectionProps) {
         {section.items?.map((item) => (
           <RecommendationRow
             item={item}
-            disabled={pendingId !== null}
-            busy={pendingId === item.id}
-            onClick={() => { void handleRecommendedGroupClick(item) }}
+            actionLabel="미리보기"
+            onClick={() => navigate(item.detailPath ?? `/compare/groups/${item.id}/preview`)}
             key={item.id}
           />
         ))}
       </div>
-      {notice ? <p className="inline-notice compare-group-notice">{notice}</p> : null}
     </AppSectionCard>
   )
 }
@@ -1464,18 +2134,21 @@ function CompareProfileListSection({ section, navigate }: SectionProps) {
   )
 }
 
-function CompareGroupMembersSection({ section, navigate }: SectionProps) {
+function CompareGroupMembersSection({ section }: { section: AppSection }) {
   const items = section.items ?? []
-  const pageSize = numberFromData(section.data, 'pageSize') ?? 5
-  const initialVisible = numberFromData(section.data, 'initialVisible') ?? pageSize
+  const pageSize = evenCompareMemberCount(numberFromData(section.data, 'pageSize') ?? 6)
+  const initialVisible = evenCompareMemberCount(numberFromData(section.data, 'initialVisible') ?? pageSize)
+  const totalCount = numberFromData(section.data, 'total') ?? items.length
   const [visibleCount, setVisibleCount] = useState(Math.min(items.length, initialVisible))
   const visibleItems = items.slice(0, visibleCount)
   const hasMore = visibleCount < items.length
 
   return (
-    <AppSectionCard className="compare-profile-list-section compare-group-members-section compare-section-card">
-      <SectionHeading eyebrow="비교 그룹" title={section.title} subtitle={section.subtitle} />
-      <div className="compare-profile-list">
+    <AppSectionCard className="compare-group-members-section compare-section-card">
+      <div className="compare-members-heading">
+        <h2>이 조건에 맞는 사용자 {totalCount.toLocaleString('ko-KR')}명</h2>
+      </div>
+      <div className="compare-member-grid" aria-label="비교 그룹 사용자">
         {visibleItems.map((item) => (
           <CompareMemberCard item={item} key={item.id} />
         ))}
@@ -1489,18 +2162,6 @@ function CompareGroupMembersSection({ section, navigate }: SectionProps) {
           더보기 ({visibleCount}/{items.length})
         </button>
       ) : null}
-      <CompareActionPanel
-        className="compare-result-action-panel"
-        title="다음에 볼 것"
-        subtitle="조건을 다시 좁히거나 코치 해석으로 이어갈 수 있어요."
-      >
-        <button className="app-button primary" type="button" onClick={() => navigate('/compare/coach')}>
-          코치 해석 보기
-        </button>
-        <button className="app-button secondary" type="button" onClick={() => navigate('/compare/filter')}>
-          조건 다시 고르기
-        </button>
-      </CompareActionPanel>
     </AppSectionCard>
   )
 }
@@ -1515,6 +2176,8 @@ function ListSection({ section, navigate }: SectionProps) {
     ? '확인 항목'
     : section.kind === 'actionList'
       ? '다음 행동'
+      : section.id === 'next'
+        ? '목록'
       : section.id.includes('completed')
         ? '완료'
         : section.id.includes('active')
@@ -1617,30 +2280,35 @@ function templateIdFromItem(item: AppItem): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
-function compareFiltersFromItem(item: AppItem): AppCompareSearchRequest | null {
-  if (!item.data) {
+function compareFiltersFromData(data: Record<string, unknown> | null | undefined): AppCompareSearchRequest | null {
+  if (!data) {
     return null
   }
   const hasCompareFilter =
-    'ageBand' in item.data ||
-    'incomeBand' in item.data ||
-    'jobCategory' in item.data ||
-    'moneyStyle' in item.data ||
-    'area' in item.data ||
-    'householdType' in item.data ||
-    'assetRange' in item.data
+    'ageBand' in data ||
+    'incomeBand' in data ||
+    'jobCategory' in data ||
+    'moneyStyle' in data ||
+    'area' in data ||
+    'householdType' in data ||
+    'assetRange' in data
   if (!hasCompareFilter) {
     return null
   }
   return {
-    ageBand: stringFromData(item.data, 'ageBand') ?? '전체',
-    incomeBand: stringFromData(item.data, 'incomeBand') ?? '전체',
-    jobCategory: stringFromData(item.data, 'jobCategory') ?? '전체',
-    moneyStyle: stringFromData(item.data, 'moneyStyle') ?? '전체',
-    area: stringFromData(item.data, 'area') ?? '전체',
-    householdType: stringFromData(item.data, 'householdType') ?? '전체',
-    assetRange: stringFromData(item.data, 'assetRange') ?? '전체',
+    ageBand: stringFromData(data, 'ageBand') ?? '전체',
+    incomeBand: stringFromData(data, 'incomeBand') ?? '전체',
+    jobCategory: stringFromData(data, 'jobCategory') ?? '전체',
+    moneyStyle: stringFromData(data, 'moneyStyle') ?? '전체',
+    area: stringFromData(data, 'area') ?? '전체',
+    householdType: stringFromData(data, 'householdType') ?? '전체',
+    assetRange: stringFromData(data, 'assetRange') ?? '전체',
   }
+}
+
+function evenCompareMemberCount(count: number) {
+  const safeCount = Math.max(2, Math.round(count))
+  return safeCount % 2 === 0 ? safeCount : safeCount + 1
 }
 
 function ActionButtons({ actions, navigate }: { actions?: AppAction[] | null; navigate: Navigate }) {
@@ -1728,9 +2396,28 @@ function cleanCaption(caption: string) {
   return cleanProductCopy(caption)
 }
 
+function groupPersonalItems(items: AppItem[]) {
+  return items.reduce<Record<string, AppItem[]>>((groups, item) => {
+    const category = stringFromData(item.data, 'category') ?? item.subtitle ?? '비교'
+    groups[category] = groups[category] ?? []
+    groups[category].push(item)
+    return groups
+  }, {})
+}
+
+function stringArrayFromData(data: Record<string, unknown> | null | undefined, key: string): string[] {
+  const value = data?.[key]
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.length > 0) : []
+}
+
 function stringFromData(data: Record<string, unknown> | null | undefined, key: string): string | null {
   const value = data?.[key]
   return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+function recordFromData(data: Record<string, unknown> | null | undefined, key: string): Record<string, unknown> | null {
+  const value = data?.[key]
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
 }
 
 function parseMoney(value: string | null | undefined) {
@@ -1771,6 +2458,29 @@ function parsePercent(value: string | null | undefined) {
   }
   const match = value.match(/-?\d+/)
   return match ? Math.max(0, Math.min(100, Number.parseInt(match[0], 10))) : null
+}
+
+function distributionBackground(items: AppItem[]) {
+  const tokens = [
+    'var(--color-chart-1)',
+    'var(--color-chart-2)',
+    'var(--color-chart-3)',
+    'var(--color-accent)',
+    'var(--color-chart-muted)',
+    'var(--color-border-strong)',
+  ]
+  let start = 0
+  const stops = items.map((item, index) => {
+    const pct = numberFromData(item.data, 'percent') ?? parsePercent(item.caption ?? item.value) ?? 0
+    const end = Math.min(100, start + pct)
+    const stop = `${tokens[index % tokens.length]} ${start}% ${end}%`
+    start = end
+    return stop
+  })
+  if (start < 100) {
+    stops.push(`var(--color-border) ${start}% 100%`)
+  }
+  return `conic-gradient(${stops.join(', ')})`
 }
 
 function privacyLabelsFromScreen(screen: AppScreenResponse, target: 'visible' | 'hidden') {

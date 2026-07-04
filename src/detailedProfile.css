@@ -1,0 +1,577 @@
+/* 상세 개인 프로필 화면 전용 스타일 (pd- 접두사로 스코프, 기존 클래스와 충돌 없음). */
+
+.pd-hero {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) 0 var(--space-5);
+  text-align: center;
+}
+
+.pd-avatar-wrap {
+  position: relative;
+  width: 92px;
+  height: 92px;
+}
+
+.pd-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  object-fit: cover;
+  background: var(--teal-50);
+  border: 3px solid var(--surface);
+  box-shadow: var(--shadow-2);
+}
+
+.pd-avatar-badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  padding: 2px var(--space-2);
+  border-radius: var(--r-pill);
+  background: var(--teal-600);
+  color: var(--surface);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: var(--shadow-1);
+}
+
+.pd-nickname {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-800);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.pd-subinfo {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pd-follow-row {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-1);
+  color: var(--ink-500);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pd-follow-row b {
+  color: var(--ink-800);
+  font-weight: 800;
+}
+
+.pd-summary-badges {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.pd-summary-badge {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  text-align: center;
+  cursor: pointer;
+}
+
+.pd-summary-badge span {
+  color: var(--ink-500);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pd-summary-badge strong {
+  color: var(--ink-800);
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+
+.pd-mission-stack {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.pd-insight {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3);
+  border-radius: var(--r-md);
+  background: var(--teal-50);
+  color: var(--teal-700);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.pd-bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  height: 160px;
+  padding-top: var(--space-6);
+}
+
+.pd-bar-chart-col {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+
+.pd-bar-chart-value {
+  position: absolute;
+  top: -22px;
+  color: var(--ink-500);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pd-bar-chart-bar {
+  width: 28px;
+  min-height: 4px;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  background: var(--teal-200);
+}
+
+.pd-bar-chart-col.is-current .pd-bar-chart-bar {
+  background: var(--teal);
+}
+
+.pd-bar-chart-year {
+  margin-top: var(--space-2);
+  color: var(--ink-500);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pd-asset-stack-bar {
+  display: flex;
+  overflow: hidden;
+  width: 100%;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface-muted);
+}
+
+.pd-asset-stack-seg:first-child {
+  border-radius: var(--r-pill) 0 0 var(--r-pill);
+}
+
+.pd-asset-stack-seg:last-child {
+  border-radius: 0 var(--r-pill) var(--r-pill) 0;
+}
+
+.pd-asset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.pd-asset-card {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.pd-asset-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-500);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pd-asset-card-head i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.pd-asset-card strong {
+  color: var(--ink-800);
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.pd-asset-card small {
+  color: var(--ink-400);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pd-donut-wrap {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-3) 0 var(--space-4);
+}
+
+.pd-donut {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 168px;
+  height: 168px;
+  border-radius: 999px;
+}
+
+.pd-donut-hole {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  width: 118px;
+  height: 118px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.pd-donut-hole span {
+  color: var(--ink-500);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pd-donut-hole strong {
+  color: var(--ink-800);
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.pd-category-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.pd-category-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.pd-category-row:last-child {
+  border-bottom: 0;
+}
+
+.pd-category-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.pd-category-copy {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--ink-800);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pd-category-copy small {
+  color: var(--ink-400);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pd-category-trailing {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pd-category-trailing b {
+  color: var(--ink-800);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.pd-category-trailing em {
+  font-size: 11px;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.pd-category-trailing em.up {
+  color: var(--warning);
+}
+
+.pd-category-trailing em.down {
+  color: var(--teal-600);
+}
+
+.pd-category-trailing em.flat {
+  color: var(--ink-400);
+}
+
+.pd-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+.pd-stat-cell {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.pd-stat-cell span {
+  color: var(--ink-500);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pd-stat-cell strong {
+  color: var(--ink-800);
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.pd-trend-wrap {
+  margin-top: var(--space-4);
+}
+
+.pd-trend-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-1);
+  color: var(--ink-400);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pd-report-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pd-report-list li {
+  display: flex;
+  gap: var(--space-2);
+  color: var(--ink-700);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.pd-mission-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.pd-mission-chip {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--teal-100);
+  border-radius: var(--r-pill);
+  background: var(--teal-50);
+  color: var(--teal-700);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pd-insurance-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.pd-insurance-row strong {
+  display: block;
+  color: var(--ink-800);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.pd-insurance-row small {
+  color: var(--ink-500);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 금융자산 카테고리 카드 → 계좌 상세 화면 (탭 가능한 button.pd-asset-card) */
+
+button.pd-asset-card {
+  width: 100%;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pd-detail-hero {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4) 0 var(--space-3);
+}
+
+.pd-detail-eyebrow {
+  color: var(--ink-500);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pd-detail-stat-rows {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+}
+
+.pd-detail-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.pd-detail-stat-row span {
+  color: var(--ink-500);
+  font-weight: 700;
+}
+
+.pd-detail-stat-row strong {
+  color: var(--ink-800);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.pd-detail-stat-row strong.up {
+  color: var(--teal-600);
+}
+
+.pd-detail-stat-row strong.down {
+  color: var(--danger);
+}
+
+.pd-detail-tabs {
+  display: flex;
+  margin-top: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.pd-detail-tabs button {
+  flex: 1;
+  padding: var(--space-3) 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--ink-400);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pd-detail-tabs button.is-active {
+  border-bottom-color: var(--teal);
+  color: var(--ink-800);
+  font-weight: 800;
+}
+
+.pd-detail-section-title {
+  margin: var(--space-4) 0 var(--space-1);
+  color: var(--ink-800);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.pd-detail-empty {
+  padding: var(--space-6) 0;
+  color: var(--ink-400);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.pd-detail-list {
+  display: grid;
+}
+
+.pd-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.pd-detail-row:last-child {
+  border-bottom: 0;
+}
+
+.pd-detail-row-name {
+  color: var(--ink-800);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pd-detail-row-trailing {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pd-detail-row-trailing b {
+  color: var(--ink-800);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.pd-detail-row-trailing em {
+  font-size: 12px;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.pd-detail-row-trailing em.rate {
+  color: var(--ink-400);
+}
+
+.pd-detail-row-trailing em.up {
+  color: var(--teal-600);
+}
+
+.pd-detail-row-trailing em.down {
+  color: var(--danger);
+}
