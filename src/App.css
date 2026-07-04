@@ -118,17 +118,24 @@
 }
 
 .screen-home-reference {
-  padding: calc(var(--space-3) + max(env(safe-area-inset-top), 56px)) var(--space-5) var(--space-7);
-  scroll-padding-bottom: var(--space-7);
+  padding:
+    calc(var(--space-2) + max(env(safe-area-inset-top), 52px))
+    var(--space-5)
+    calc(var(--bottom-nav-height) + var(--space-4));
+  scroll-padding-bottom: calc(var(--bottom-nav-height) + var(--space-2));
   background: var(--surface);
+}
+
+.screen-home-reference .status-bar {
+  margin-bottom: var(--space-1);
 }
 
 .home-app-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: var(--space-4);
-  padding: var(--space-4) 0 var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-2) 0 var(--space-4);
 }
 
 .home-app-header h1 {
@@ -152,8 +159,8 @@
 .home-stack {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
-  padding-bottom: var(--space-6);
+  gap: var(--space-4);
+  padding-bottom: 0;
 }
 
 .home-mission-card,
@@ -243,7 +250,7 @@
 
 .home-section-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
 }
@@ -2220,7 +2227,10 @@ button.activity-row {
   border-radius: var(--r-md);
   color: var(--ink-800);
   background: var(--surface);
-  font-size: 15px;
+  /* iOS는 입력 포커스 시 font-size가 16px 미만이면 화면을 자동으로 확대하고,
+     특히 WKWebView(Capacitor)에서는 키보드를 닫아도 그 확대 상태가 풀리지 않는
+     경우가 있다. 16px 이상으로 유지해 자동 확대 자체가 발생하지 않게 한다. */
+  font-size: 16px;
   font-weight: 700;
   outline: none;
 }
@@ -5920,7 +5930,7 @@ button.profile-activity-row:active {
 .onboarding-screen {
   height: 100%;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
   gap: var(--space-3);
   overflow: hidden;
   padding-bottom: var(--space-4);
@@ -5966,9 +5976,7 @@ button.profile-activity-row:active {
 }
 
 /*
- * 스텝 수가 5개에서 8개로 늘어나면서 고정 5열 그리드에 텍스트 라벨을 넣으면
- * 좁아진 칸 밖으로 글씨가 삐져나가고, 그 여파로 .screen이 좌우로도 스크롤
- * 가능해지는 문제가 있었다. 라벨 텍스트는 헤더에 이미 크게 표시되므로,
+ * 스텝 라벨 텍스트는 헤더(.onboarding-top strong)에 이미 크게 표시되므로,
  * 진행바는 숫자만 있는 컴팩트한 원형 점으로 단순화한다(스텝 수 무관하게 안전).
  */
 .onboarding-progress {
@@ -5976,10 +5984,6 @@ button.profile-activity-row:active {
   flex-wrap: wrap;
   gap: var(--space-2);
   justify-content: center;
-}
-
-.onboarding-progress span {
-  display: contents;
 }
 
 .onboarding-progress b {
@@ -5995,13 +5999,8 @@ button.profile-activity-row:active {
   font-weight: 800;
 }
 
-.onboarding-progress .active b {
+.onboarding-progress b.active {
   border-color: var(--teal-100);
-  color: var(--surface);
-  background: var(--teal);
-}
-
-.onboarding-progress .active b {
   color: var(--surface);
   background: var(--teal);
 }
@@ -6227,6 +6226,14 @@ button.profile-activity-row:active {
   background: var(--surface-muted);
 }
 
+.scope-row > div,
+.consent-check > div,
+.preview-profile > div {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
 .scope-row.selected {
   border-color: var(--teal);
   background: var(--teal-50);
@@ -6281,7 +6288,7 @@ button.profile-activity-row:active {
   margin: var(--space-4) 0 0;
 }
 
-.ready-summary div {
+.ready-summary dl > div {
   display: grid;
   grid-template-columns: 70px 1fr;
   gap: var(--space-3);

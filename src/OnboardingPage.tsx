@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from './api'
 import { describeError } from './errors'
 import type { Navigate } from './navigation'
@@ -64,6 +64,17 @@ const defaultBudgetTargets: ProductBudgetTargets = {
 
 const surveyGroups: SurveyGroup[] = [
   {
+    field: 'ageBand',
+    title: '연령대',
+    description: '비교군을 잡을 때 가장 먼저 보는 기준이에요.',
+    options: [
+      { value: '20대 초반', title: '20대 초반', detail: '사회 초년 · 자립 준비' },
+      { value: '20대 후반', title: '20대 후반', detail: '커리어 성장기', badge: '기본' },
+      { value: '30대 초반', title: '30대 초반', detail: '안정기 진입' },
+      { value: '30대 후반', title: '30대 후반', detail: '자산 형성기' },
+    ],
+  },
+  {
     field: 'jobCategory',
     title: '현재 하는 일',
     description: '또래 비교 그룹을 잡을 때 가장 먼저 보는 기준이에요.',
@@ -79,7 +90,7 @@ const surveyGroups: SurveyGroup[] = [
     description: '정확한 금액 대신 구간만 사용해요.',
     options: [
       { value: '2,000만원 ~ 3,000만원', title: '2,000~3,000만원', detail: '초기 자립 구간' },
-      { value: '3,000만원 ~ 4,000만원', title: '3,000~4,000만원', detail: '균형 예산 구간', badge: '선택됨' },
+      { value: '3,000만원 ~ 4,000만원', title: '3,000~4,000만원', detail: '균형 예산 구간', badge: '기본' },
       { value: '4,000만원 ~ 5,000만원', title: '4,000~5,000만원', detail: '저축 여력 구간' },
     ],
   },
@@ -161,7 +172,7 @@ const surveyGroups: SurveyGroup[] = [
 ]
 
 const lifeContextGroups = surveyGroups.filter((group) => (
-  ['jobCategory', 'incomeBand', 'householdType'].includes(group.field)
+  ['ageBand', 'jobCategory', 'incomeBand', 'householdType'].includes(group.field)
 ))
 
 const concernGroups = surveyGroups.filter((group) => (
@@ -246,6 +257,11 @@ export function OnboardingPage({ navigate, session }: { navigate: Navigate; sess
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const name = session.user?.displayName ?? 'FinMate'
+  const shellRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    shellRef.current?.scrollTo({ top: 0 })
+  }, [step])
 
   const updateSurvey = (field: SurveyField, value: string) => {
     setSurvey((current) => ({ ...current, [field]: value }))
@@ -325,22 +341,25 @@ export function OnboardingPage({ navigate, session }: { navigate: Navigate; sess
   return (
     <div className="screen onboarding-screen">
       <StatusBar time="9:41" />
-      <div className="onboarding-shell">
-        <header className="onboarding-top">
-          <Logo size={28} />
-          <span>FinMate 시작 설정</span>
-          <strong>{onboardingSteps[step]}</strong>
-          <p>{name}님에게 맞는 비교군, 공개 범위, 첫 미션을 차례로 정리해요.</p>
-        </header>
-        <div className="onboarding-progress" aria-label="온보딩 진행 단계">
-          {onboardingSteps.map((label, index) => (
-            <span className={index <= step ? 'active' : ''} key={label}>
-              <b>{index + 1}</b>
-              {label}
-            </span>
-          ))}
-        </div>
-
+      <header className="onboarding-top">
+        <Logo size={28} />
+        <span>FinMate 시작 설정</span>
+        <strong>{onboardingSteps[step]}</strong>
+        {step === 0 ? <p>{name}님에게 맞는 비교군, 공개 범위, 첫 미션을 차례로 정리해요.</p> : null}
+      </header>
+      <div className="onboarding-progress" aria-label="온보딩 진행 단계">
+        {onboardingSteps.map((label, index) => (
+          <b
+            className={index <= step ? 'active' : ''}
+            aria-label={`${index + 1}단계 ${label}${index === step ? ' (현재 단계)' : ''}`}
+            aria-current={index === step ? 'step' : undefined}
+            key={label}
+          >
+            {index + 1}
+          </b>
+        ))}
+      </div>
+      <div className="onboarding-shell" ref={shellRef}>
         {step === 0 ? <LifeContextStep survey={survey} updateSurvey={updateSurvey} /> : null}
         {step === 1 ? <MoneyConcernStep survey={survey} updateSurvey={updateSurvey} /> : null}
         {step === 2 ? <GoalRiskStep survey={survey} updateSurvey={updateSurvey} /> : null}
