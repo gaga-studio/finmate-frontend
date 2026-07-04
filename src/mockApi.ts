@@ -43,27 +43,62 @@ function screen(partial: Partial<AppScreenResponse> & Pick<AppScreenResponse, 's
   }
 }
 
+const aliasAdjectives = ['단단한', '야무진', '반짝이는', '차분한', '부지런한', '싱그러운', '든든한', '맑은']
+const aliasNouns = ['고래', '구름', '조약돌', '나무', '별빛', '바람', '등대', '새싹']
+
+function hashText(value: string): number {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+function anonymousAvatarSeed(userId: string): string {
+  return hashText(`avatar:${userId}`).toString(16).padStart(8, '0')
+}
+
+function anonymousAlias(userId: string): string {
+  const hash = hashText(`alias:${userId}`)
+  const adjective = aliasAdjectives[hash % aliasAdjectives.length]
+  const noun = aliasNouns[Math.floor(hash / aliasAdjectives.length) % aliasNouns.length]
+  const suffix = String(1000 + (hash % 9000)).padStart(4, '0')
+  return `${adjective}${noun}${suffix}`
+}
+
+function anonymousIdentityData(userId: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    ...extra,
+    isAnonymous: true,
+    anonymousAvatarSeed: anonymousAvatarSeed(userId),
+    actualNameHidden: true,
+  }
+}
+
+const mockBirthdayOwnerId = 'mock-birthday-owner-p002'
+
 function buildCompareProfiles(count: number): AppItem[] {
-  const names = ['민지', '도윤', '서연', '지호', '하은', '유준', '채원', '태윤', '수아', '건우']
   const jobs = ['IT/개발', '마케팅', '금융', '디자인', '대학생/취준']
   const areas = ['서울 강남권', '서울 강북권', '경기권', '인천권', '부산권']
   const styles = ['절약형', '저축형', '투자형', '안정 추구형']
   return Array.from({ length: count }, (_, index) => {
+    const userId = `mock-compare-p${String(index + 2).padStart(3, '0')}`
     const stockSignal = index % 3 === 0
     const savingSignal = index % 2 === 0
     const pensionSignal = index % 4 === 0
     const foodSpend = 210000 + index * 8300
     const cafeSpend = 42000 + index * 1900
     return {
-      id: `compare-profile-${index + 1}`,
-      title: names[index % names.length],
+      id: userId,
+      title: anonymousAlias(userId),
       subtitle: jobs[index % jobs.length],
       value: undefined,
       caption: undefined,
       icon: 'profile',
       tone: 'teal',
       detailPath: null,
-      data: {
+      data: anonymousIdentityData(userId, {
         ageBand: '20대 후반',
         jobCategory: jobs[index % jobs.length],
         incomeBand: '3,000만원 ~ 4,000만원',
@@ -84,7 +119,7 @@ function buildCompareProfiles(count: number): AppItem[] {
           savingSignal ? '청년미래적금 가입' : '',
           pensionSignal ? '연금 준비중' : '',
         ].filter(Boolean),
-      },
+      }),
     }
   })
 }
@@ -92,22 +127,24 @@ function buildCompareProfiles(count: number): AppItem[] {
 const friendProductActionPool = ['청약 시작', '청년미래적금 가입', 'ETF 경험 있음', '비상금 통장 개설', '연금 준비중', '적금 자동이체 시작']
 
 function buildPeople(count: number, relation: 'following' | 'followers'): AppItem[] {
-  const names = ['민지', '도윤', '서연', '지호', '하은', '유준', '채원', '태윤']
-  return Array.from({ length: count }, (_, index) => ({
-    id: `${relation}-${index + 1}`,
-    title: names[index % names.length],
-    subtitle: '공개 금융 루틴 진행 중',
-    value: `${(index + 1) * 2}개 공개`,
-    caption: null,
-    icon: 'profile',
-    tone: 'teal',
-    detailPath: null,
-    // follow scope: 금액·시점은 절대 숨기고, "뭘 하는지"만 공개(UI.md 6장)
-    data: {
+  return Array.from({ length: count }, (_, index) => {
+    const userId = `mock-${relation}-p${String(index + 2).padStart(3, '0')}`
+    return {
+      id: userId,
+      title: anonymousAlias(userId),
+      subtitle: '공개 금융 루틴 진행 중',
+      value: `${(index + 1) * 2}개 공개`,
+      caption: null,
+      icon: 'profile',
+      tone: 'teal',
+      detailPath: null,
+      // follow scope: 금액·시점은 절대 숨기고, "뭘 하는지"만 공개(UI.md 6장)
+      data: anonymousIdentityData(userId, {
       publicSignalCount: (index + 1) * 2,
       productActions: [friendProductActionPool[index % friendProductActionPool.length], friendProductActionPool[(index + 2) % friendProductActionPool.length]],
-    },
-  }))
+      }),
+    }
+  })
 }
 
 function buildActivity(count: number): AppItem[] {
@@ -132,18 +169,20 @@ function buildActivity(count: number): AppItem[] {
 }
 
 function buildParticipants(count: number): AppItem[] {
-  const names = ['민지', '도윤', '서연', '지호', '하은']
-  return Array.from({ length: count }, (_, index) => ({
-    id: `participant-${index + 1}`,
-    title: names[index % names.length],
-    subtitle: '축하해요! 🎉',
-    value: null,
-    caption: '참여 완료',
-    icon: 'profile',
-    tone: 'teal',
-    detailPath: null,
-    data: null,
-  }))
+  return Array.from({ length: count }, (_, index) => {
+    const userId = `mock-birthday-p${String(index + 2).padStart(3, '0')}`
+    return {
+      id: userId,
+      title: anonymousAlias(userId),
+      subtitle: '축하해요! 🎉',
+      value: null,
+      caption: '참여 완료',
+      icon: 'profile',
+      tone: 'teal',
+      detailPath: null,
+      data: anonymousIdentityData(userId),
+    }
+  })
 }
 
 function homeScreen(): AppScreenResponse {
@@ -208,7 +247,7 @@ function homeScreen(): AppScreenResponse {
     {
       id: 'birthday-alert',
       kind: 'actionCard',
-      title: '지우의 생일펀드',
+      title: `${anonymousAlias(mockBirthdayOwnerId)}님의 생일펀드`,
       subtitle: '친구들과 함께 축하 펀드를 채워보세요.',
       metrics: [{ label: '모금 현황', value: '62%', progress: 62 }],
       actions: [{ label: '펀드 보기', path: '/birthdays', method: 'GET', tone: 'primary' }],
@@ -653,7 +692,7 @@ function birthdaysScreen(): AppScreenResponse {
         id: 'upcoming',
         kind: 'birthday',
         title: '다가오는 생일펀드',
-        subtitle: '친구 지우의 생일이 3일 남았어요.',
+        subtitle: `${anonymousAlias(mockBirthdayOwnerId)}님의 생일이 3일 남았어요.`,
         metrics: [{ label: '모금 현황', value: '62%', progress: 62 }],
         detailPath: '/birthdays/birthday-jiwoo',
         actions: [{ label: '참여하기', path: '/birthday-funds/fund-001/contribute', method: 'GET', tone: 'primary' }],
@@ -671,7 +710,7 @@ function birthdayFlowScreen(birthdayId: string): AppScreenResponse {
       {
         id: 'event',
         kind: 'birthday',
-        title: '지우의 생일펀드',
+        title: `${anonymousAlias(mockBirthdayOwnerId)}님의 생일펀드`,
         subtitle: '친구들과 함께 축하 펀드를 채워보세요.',
         metrics: [
           { label: '모금 현황', value: '62%', progress: 62 },
