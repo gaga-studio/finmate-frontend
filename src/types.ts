@@ -145,7 +145,6 @@ export type ProfileScope = 'anonymous' | 'group-anon' | 'follow' | 'group-follow
  */
 export type ProfileFinancialFacts = {
   displayName: string
-  anonymousAvatarSeed?: string | null
   ageBand?: string | null
   jobCategory?: string | null
   moneyStyle?: string | null
