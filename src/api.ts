@@ -194,7 +194,7 @@ const realApi = {
     fundId: string,
     payload: BirthdayContributionPayload = {
       amount: 10000,
-      message: '생일 축하해!',
+      message: '지우야 생일 축하해!',
       anonymous: false,
     },
     token?: string,
