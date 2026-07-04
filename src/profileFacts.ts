@@ -8,6 +8,7 @@ import type { AppItem, ProfileFinancialFacts } from './types'
 export function profileFactsFromItem(item: AppItem): ProfileFinancialFacts {
   return {
     displayName: item.title,
+    anonymousAvatarSeed: dataText(item, 'anonymousAvatarSeed'),
     ageBand: dataText(item, 'ageBand'),
     jobCategory: dataText(item, 'jobCategory'),
     incomeBand: dataText(item, 'incomeBand'),
