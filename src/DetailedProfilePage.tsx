@@ -1,217 +1,332 @@
+import { useRef } from 'react'
 import type { Navigate } from './navigation'
 import { AppSectionCard, SectionHeading } from './AppComponents'
-import type { AppItem, AppMetric, AppScreenResponse, AppSection } from './types'
-import { IconButton, ProgressLine, StatusBar } from './uiPrimitives'
+import { BigNumber, CoachBubble, MissionCard } from './components'
+import { IconButton, MiniLineChart, StatusBar } from './uiPrimitives'
+import { detailedProfile, type AssetCategory, type SavingsTrendPoint, type SpendingCategory } from './detailedProfileData'
 import './detailedProfile.css'
 
-export function DetailedProfilePage({
-  screen,
-  navigate,
-}: {
-  screen: AppScreenResponse
-  navigate: Navigate
-}) {
-  const hero = sectionByKind(screen, 'profileDetailHero')
-  const summary = sectionByKind(screen, 'profileDetailSummary')
-  const missions = sectionByKind(screen, 'profileDetailMissions')
-  const income = sectionByKind(screen, 'profileDetailIncome')
-  const assets = sectionByKind(screen, 'profileDetailAssets')
-  const spending = sectionByKind(screen, 'profileDetailSpending')
-  const report = sectionByKind(screen, 'profileDetailReport')
-  const insurance = sectionByKind(screen, 'profileDetailInsurance')
-  const isSelf = Boolean(screen.meta?.isSelf)
+/** 안정→공격 순 틸 램프. 브랜드 규칙상 다색 대신 틸 단일톤 시퀀스만 사용한다(DESIGN.md 데이터비즈). */
+const TEAL_RAMP = ['var(--teal-900)', 'var(--teal-700)', 'var(--teal-600)', 'var(--teal)', 'var(--teal-400)', 'var(--teal-200)', 'var(--teal-100)', 'var(--teal-50)']
+
+/**
+ * FinMate 상세 개인 프로필 — 익명 기반 "내 금융 스냅샷 + 개인 분석" 화면.
+ * 또래 비교·FOMO 요소는 넣지 않는다(비교는 '비교' 탭이 담당). navigation.ts의
+ * profile-detail 라우트에서만 진입하는 독립 화면 — 기존 ProfileSections/screenRenderer와 분리.
+ */
+export function DetailedProfilePage({ navigate }: { navigate: Navigate }) {
+  const missionRef = useRef<HTMLDivElement>(null)
+  const incomeRef = useRef<HTMLDivElement>(null)
+  const assetsRef = useRef<HTMLDivElement>(null)
+  const spendingRef = useRef<HTMLDivElement>(null)
+
+  const scrollTo = (ref: { current: HTMLDivElement | null }) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     <div className="screen screen-profile-detail">
-      <StatusBar time={screen.statusBarTime} />
+      <StatusBar time="9:41" />
       <header className="app-header">
         <div className="header-side">
           <IconButton icon="back" label="뒤로" onClick={() => navigate('/profile')} />
         </div>
-        <h1>{screen.title}</h1>
+        <h1>프로필</h1>
         <div className="header-side right">
-          {isSelf ? (
-            <button className="text-link" type="button" onClick={() => navigate('/settings/privacy')}>
-              설정
-            </button>
-          ) : null}
+          <button className="text-link" type="button" onClick={() => navigate('/settings/privacy')}>설정</button>
         </div>
       </header>
 
-      {hero ? <ProfileHero section={hero} /> : null}
-      {summary ? <SummaryBadges section={summary} /> : null}
+      <ProfileHero />
+      <SummaryBadges onSelect={(key) => scrollTo(key === 'income' ? incomeRef : key === 'assets' ? assetsRef : spendingRef)} />
 
       <section className="screen-stack">
-        {missions ? <ItemSection section={missions} /> : null}
-        {income ? <MetricSection section={income} /> : null}
-        {assets ? <AssetsSection section={assets} navigate={navigate} /> : null}
-        {spending ? <ItemSection section={spending} /> : null}
-        {report ? <ItemSection section={report} /> : null}
-        {insurance ? <MetricSection section={insurance} /> : null}
+        <div ref={missionRef}>
+          <MissionsSection />
+        </div>
+        <div ref={incomeRef}>
+          <IncomeSection />
+        </div>
+        <div ref={assetsRef}>
+          <AssetsSection navigate={navigate} />
+        </div>
+        <div ref={spendingRef}>
+          <SpendingSection onStartMission={() => scrollTo(missionRef)} />
+        </div>
+        <IncomeSavingsSection />
+        <MonthlyReportSection />
+        <InsuranceSection />
       </section>
     </div>
   )
 }
 
-function ProfileHero({ section }: { section: AppSection }) {
-  const avatarSeed = stringData(section.data, 'anonymousAvatarSeed')
-  const hidden = Boolean(section.data?.actualNameHidden)
+function ProfileHero() {
+  const { header } = detailedProfile
   return (
     <section className="pd-hero">
-      <div className={`pd-avatar-seed ${avatarTone(avatarSeed ?? section.title)}`} aria-hidden="true">
-        {avatarInitial(section.title)}
+      <div className="pd-avatar-wrap">
+        <img className="pd-avatar" src="/assets/characters/finmate-growth.png" alt="" aria-hidden="true" />
+        <span className="pd-avatar-badge">{header.gradeBadge}</span>
       </div>
-      <strong className="pd-nickname">{section.title}</strong>
-      {section.subtitle ? <p className="pd-subinfo">{section.subtitle}</p> : null}
-      {hidden ? <p className="pd-privacy-note">실명, 계좌번호, 거래번호는 숨겨져요.</p> : null}
-      {section.metrics?.length ? (
-        <div className="pd-follow-row">
-          {section.metrics.map((metric) => (
-            <span key={metric.label}>
-              {metric.label} <b>{metric.value}</b>
-            </span>
-          ))}
-        </div>
-      ) : null}
+      <strong className="pd-nickname">{header.nickname}</strong>
+      <p className="pd-subinfo">{header.ageBand} · {header.jobStatus}</p>
+      <div className="pd-follow-row">
+        <span>Followers <b>{header.followers}</b></span>
+        <span>Following <b>{header.following}</b></span>
+      </div>
     </section>
   )
 }
 
-function SummaryBadges({ section }: { section: AppSection }) {
-  const metrics = section.metrics ?? []
-  if (!metrics.length) {
-    return null
-  }
+function SummaryBadges({ onSelect }: { onSelect: (key: 'income' | 'assets' | 'spending') => void }) {
+  const { summaryBadges } = detailedProfile
   return (
     <div className="pd-summary-badges">
-      {metrics.map((metric) => (
-        <div className="pd-summary-badge" key={metric.label}>
-          <span>{metric.label}</span>
-          <strong>{metric.value}</strong>
-          {metric.caption ? <small>{metric.caption}</small> : null}
+      <button className="pd-summary-badge" type="button" onClick={() => onSelect('income')}>
+        <span>{summaryBadges.annualIncome.label}</span>
+        <strong>{summaryBadges.annualIncome.amountLabel}</strong>
+      </button>
+      <button className="pd-summary-badge" type="button" onClick={() => onSelect('assets')}>
+        <span>{summaryBadges.totalAssets.label}</span>
+        <strong>{summaryBadges.totalAssets.amountLabel}</strong>
+      </button>
+      <button className="pd-summary-badge" type="button" onClick={() => onSelect('spending')}>
+        <span>{summaryBadges.monthlySpending.label}</span>
+        <strong>{summaryBadges.monthlySpending.amountLabel}</strong>
+      </button>
+    </div>
+  )
+}
+
+function MissionsSection() {
+  return (
+    <AppSectionCard>
+      <SectionHeading eyebrow="게임화" title="진행 중인 미션" />
+      <div className="pd-mission-stack">
+        {detailedProfile.missions.map((mission) => (
+          <MissionCard
+            key={mission.id}
+            title={mission.title}
+            rewardPoints={mission.rewardPoints}
+            status={mission.status}
+            progressLabel={mission.progressLabel}
+            progressPercent={mission.progressPercent}
+          />
+        ))}
+      </div>
+    </AppSectionCard>
+  )
+}
+
+function IncomeSection() {
+  const { income } = detailedProfile
+  return (
+    <AppSectionCard>
+      <SectionHeading eyebrow="소득" title="올해 소득" />
+      <BigNumber value={detailedProfile.summaryBadges.annualIncome.amount} unit="원" size="l" />
+      <IncomeBarChart yearly={income.yearly} />
+      <p className="pd-insight">{income.insight}</p>
+    </AppSectionCard>
+  )
+}
+
+function IncomeBarChart({ yearly }: { yearly: typeof detailedProfile.income.yearly }) {
+  const max = Math.max(...yearly.map((point) => point.amount))
+  const currentYear = Math.max(...yearly.map((point) => point.year))
+  return (
+    <div className="pd-bar-chart" role="img" aria-label="연도별 소득 추이">
+      {yearly.map((point) => (
+        <div className={`pd-bar-chart-col ${point.year === currentYear ? 'is-current' : ''}`} key={point.year}>
+          <span className="pd-bar-chart-value">{point.amountLabel}</span>
+          <span className="pd-bar-chart-bar" style={{ height: `${Math.max(4, Math.round((point.amount / max) * 100))}%` }} />
+          <span className="pd-bar-chart-year">{point.year}</span>
         </div>
       ))}
     </div>
   )
 }
 
-function MetricSection({ section }: { section: AppSection }) {
-  const metrics = section.metrics ?? []
+function AssetsSection({ navigate }: { navigate: Navigate }) {
+  const { assets } = detailedProfile
+  const colorById = buildCategoryColorMap(assets.categories)
+
   return (
     <AppSectionCard>
-      <SectionHeading title={section.title} subtitle={section.subtitle} />
-      <div className="pd-stat-grid">
-        {metrics.map((metric) => (
-          <MetricCell metric={metric} key={metric.label} />
+      <SectionHeading eyebrow="금융자산" title="총 금융자산" />
+      <BigNumber value={assets.total} unit="원" size="l" />
+      <div className="pd-asset-stack-bar" role="img" aria-label="자산 구성 비중">
+        {assets.categories.map((category) => (
+          <span
+            className="pd-asset-stack-seg"
+            key={category.id}
+            style={{ width: `${category.sharePercent}%`, background: colorById.get(category.id) }}
+          />
         ))}
       </div>
-      {section.data?.empty ? <p className="pd-insight">연결된 상세 데이터가 준비되면 이곳에 표시됩니다.</p> : null}
-    </AppSectionCard>
-  )
-}
-
-function AssetsSection({ section, navigate }: { section: AppSection; navigate: Navigate }) {
-  const total = firstMetric(section.metrics)
-  const items = section.items ?? []
-  return (
-    <AppSectionCard>
-      <SectionHeading title={section.title} subtitle={section.subtitle} />
-      {total ? (
-        <div className="pd-detail-hero">
-          <span className="pd-detail-eyebrow">{total.label}</span>
-          <strong className="pd-big-value">{total.value}</strong>
-          {total.caption ? <small>{total.caption}</small> : null}
-        </div>
-      ) : null}
       <div className="pd-asset-grid">
-        {items.map((item) => (
+        {assets.categories.map((category) => (
           <button
             className="pd-asset-card"
             type="button"
-            key={item.id}
-            onClick={() => item.detailPath && navigate(item.detailPath)}
-            disabled={!item.detailPath}
+            key={category.id}
+            onClick={() => navigate(`/profile/detail/assets/${category.id}`)}
           >
             <span className="pd-asset-card-head">
-              <i />
-              {item.title}
+              <i style={{ background: colorById.get(category.id) }} />
+              {category.label} {category.sharePercent}%
             </span>
-            <strong>{item.value ?? '-'}</strong>
-            <small>{item.subtitle ?? item.caption ?? '상세 없음'}</small>
-            {item.caption ? <em>{item.caption}</em> : null}
+            <strong>{category.amountLabel}</strong>
+            <small>{category.note}</small>
           </button>
         ))}
       </div>
+      <p className="pd-insight">{assets.styleInsight}</p>
     </AppSectionCard>
   )
 }
 
-function MetricCell({ metric }: { metric: AppMetric }) {
+function SpendingSection({ onStartMission }: { onStartMission: () => void }) {
+  const { spending } = detailedProfile
+  const colorById = buildCategoryColorMap(spending.categories)
+
   return (
-    <div className="pd-stat-cell">
-      <span>{metric.label}</span>
-      <strong>{metric.value}</strong>
-      {metric.caption ? <small>{metric.caption}</small> : null}
-      {typeof metric.progress === 'number' ? <ProgressLine value={metric.progress} tone="teal" /> : null}
+    <AppSectionCard>
+      <SectionHeading eyebrow="소비 패턴" title="이번 달 소비" />
+      <BigNumber value={spending.total} unit="원" size="l" caption={spending.comparisonNote} />
+      <SpendingDonut categories={spending.categories} colorById={colorById} totalLabel={spending.totalLabel} />
+      <div className="pd-category-list">
+        {spending.categories.map((category) => (
+          <div className="pd-category-row" key={category.id}>
+            <span className="pd-category-dot" style={{ background: colorById.get(category.id) }} />
+            <span className="pd-category-copy">
+              {category.emoji} {category.label}
+              <small>{category.sharePercent}%</small>
+            </span>
+            <span className="pd-category-trailing">
+              <b>{category.amountLabel}</b>
+              <em className={category.deltaTone}>{category.deltaLabel}</em>
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="pd-insight">{spending.insight}</p>
+      <CoachBubble message={spending.coachMessage} ctaLabel="미션 시작하기" onCta={onStartMission} />
+    </AppSectionCard>
+  )
+}
+
+function SpendingDonut({
+  categories,
+  colorById,
+  totalLabel,
+}: {
+  categories: SpendingCategory[]
+  colorById: Map<string, string>
+  totalLabel: string
+}) {
+  let cursor = 0
+  const stops = categories.map((category) => {
+    const start = cursor
+    cursor += category.sharePercent
+    return `${colorById.get(category.id)} ${start}% ${cursor}%`
+  })
+
+  return (
+    <div className="pd-donut-wrap">
+      <div className="pd-donut" style={{ background: `conic-gradient(${stops.join(', ')})` }} role="img" aria-label="카테고리별 소비 비중">
+        <div className="pd-donut-hole">
+          <span>이번 달 소비</span>
+          <strong>{totalLabel}</strong>
+        </div>
+      </div>
     </div>
   )
 }
 
-function ItemSection({ section }: { section: AppSection }) {
-  const items = section.items ?? []
+function IncomeSavingsSection() {
+  const { incomeSavings } = detailedProfile
   return (
     <AppSectionCard>
-      <SectionHeading title={section.title} subtitle={section.subtitle} />
-      <div className="pd-category-list">
-        {items.map((item) => (
-          <ItemRow item={item} key={item.id} />
+      <SectionHeading eyebrow="개인 분석" title="소득·저축 패턴" />
+      <div className="pd-stat-grid">
+        <div className="pd-stat-cell">
+          <span>월 평균 소득</span>
+          <strong>{incomeSavings.avgIncomeLabel}</strong>
+        </div>
+        <div className="pd-stat-cell">
+          <span>월 평균 소비</span>
+          <strong>{incomeSavings.avgSpendingLabel}</strong>
+        </div>
+        <div className="pd-stat-cell">
+          <span>월 평균 저축</span>
+          <strong>{incomeSavings.avgSavingsLabel}</strong>
+        </div>
+        <div className="pd-stat-cell">
+          <span>저축률</span>
+          <strong>{incomeSavings.savingsRateLabel}</strong>
+        </div>
+      </div>
+      <SavingsTrendChart trend={incomeSavings.trend} />
+      <p className="pd-insight">{incomeSavings.insight}</p>
+    </AppSectionCard>
+  )
+}
+
+function SavingsTrendChart({ trend }: { trend: SavingsTrendPoint[] }) {
+  return (
+    <div className="pd-trend-wrap">
+      <MiniLineChart values={trend.map((point) => point.ratePercent)} />
+      <div className="pd-trend-labels">
+        {trend.map((point) => <span key={point.label}>{point.label}</span>)}
+      </div>
+    </div>
+  )
+}
+
+function MonthlyReportSection() {
+  const { monthlyReport } = detailedProfile
+  return (
+    <AppSectionCard>
+      <SectionHeading eyebrow="AI 코치 요약" title="이번 달 분석 리포트" />
+      <ul className="pd-report-list">
+        {monthlyReport.insights.map((line) => <li key={line}>💡 {line}</li>)}
+      </ul>
+      <div className="pd-mission-chip-row">
+        {monthlyReport.recommendedMissions.map((mission) => (
+          <span className="pd-mission-chip" key={mission}>✅ {mission}</span>
         ))}
       </div>
     </AppSectionCard>
   )
 }
 
-function ItemRow({ item }: { item: AppItem }) {
-  const share = numericData(item.data, 'sharePercent')
+function InsuranceSection() {
+  const { insurance } = detailedProfile
   return (
-    <div className="pd-category-row">
-      <span className="pd-category-dot" />
-      <span className="pd-category-copy">
-        {item.title}
-        {item.subtitle ? <small>{item.subtitle}</small> : null}
-      </span>
-      <span className="pd-category-trailing">
-        {item.value ? <b>{item.value}</b> : null}
-        {item.caption ? <em>{item.caption}</em> : null}
-      </span>
-      {typeof share === 'number' ? <ProgressLine value={share} tone="teal" /> : null}
-    </div>
+    <AppSectionCard>
+      <SectionHeading eyebrow="보험" title="가입 현황" />
+      <div className="pd-insurance-row">
+        <div>
+          <strong>{insurance.monthlyPremiumLabel}</strong>
+          <small>총 {insurance.productCount}개</small>
+        </div>
+      </div>
+    </AppSectionCard>
   )
 }
 
-function sectionByKind(screen: AppScreenResponse, kind: string) {
-  return screen.sections.find((section) => section.kind === kind)
-}
+function buildCategoryColorMap(categories: Array<AssetCategory | SpendingCategory>): Map<string, string> {
+  const liabilities = categories.filter((category) => 'isLiability' in category && category.isLiability)
+  const ranked = categories
+    .filter((category) => !('isLiability' in category && category.isLiability))
+    .slice()
+    .sort((a, b) => b.sharePercent - a.sharePercent)
 
-function firstMetric(metrics?: AppMetric[] | null) {
-  return metrics?.[0] ?? null
-}
-
-function avatarInitial(title: string) {
-  return title.replace(/\d/g, '').trim().slice(0, 1) || 'F'
-}
-
-function avatarTone(seed: string) {
-  const code = Array.from(seed).reduce((total, char) => total + char.charCodeAt(0), 0)
-  return `tone-${code % 6}`
-}
-
-function stringData(data: AppSection['data'], key: string) {
-  const value = data?.[key]
-  return typeof value === 'string' ? value : null
-}
-
-function numericData(data: AppItem['data'], key: string) {
-  const value = data?.[key]
-  return typeof value === 'number' ? value : null
+  const colorById = new Map<string, string>()
+  ranked.forEach((category, index) => {
+    colorById.set(category.id, TEAL_RAMP[Math.min(index, TEAL_RAMP.length - 1)])
+  })
+  liabilities.forEach((category) => colorById.set(category.id, '#D7DEDB'))
+  return colorById
 }

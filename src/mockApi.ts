@@ -137,7 +137,7 @@ function buildPeople(count: number, relation: 'following' | 'followers'): AppIte
       caption: null,
       icon: 'profile',
       tone: 'teal',
-      detailPath: `/profile/detail/${userId}`,
+      detailPath: null,
       // follow scope: 금액·시점은 절대 숨기고, "뭘 하는지"만 공개(UI.md 6장)
       data: anonymousIdentityData(userId, {
         publicSignalCount: (index + 1) * 2,
@@ -149,26 +149,23 @@ function buildPeople(count: number, relation: 'following' | 'followers'): AppIte
 
 function buildActivity(count: number): AppItem[] {
   const activities = [
-    { userId: 'mock-activity-p002', subtitle: '적금 · 연금', value: '+₩240,000' },
-    { userId: 'mock-activity-p003', subtitle: '주식', value: '+₩520,000' },
-    { userId: 'mock-activity-p004', subtitle: '적금 · 펀드', value: '+₩180,000' },
-    { userId: 'mock-activity-p005', subtitle: '주식', value: '+₩120,000' },
-    { userId: 'mock-activity-p006', subtitle: '적금', value: '+₩300,000' },
+    { title: '이지연', subtitle: '적금 · 연금', value: '+₩240,000' },
+    { title: '김민수', subtitle: '주식', value: '+₩520,000' },
+    { title: '박상우', subtitle: '적금 · 펀드', value: '+₩180,000' },
+    { title: '최유진', subtitle: '주식', value: '+₩120,000' },
+    { title: '정하나', subtitle: '적금', value: '+₩300,000' },
   ] as const
-  return Array.from({ length: count }, (_, index) => {
-    const activity = activities[index % activities.length]
-    return {
-      id: `activity-${index + 1}`,
-      title: anonymousAlias(activity.userId),
-      subtitle: activity.subtitle,
-      value: activity.value,
-      caption: null,
-      icon: null,
-      tone: 'teal',
-      detailPath: `/profile/detail/${activity.userId}`,
-      data: anonymousIdentityData(activity.userId),
-    }
-  })
+  return Array.from({ length: count }, (_, index) => ({
+    id: `activity-${index + 1}`,
+    title: activities[index % activities.length].title,
+    subtitle: activities[index % activities.length].subtitle,
+    value: activities[index % activities.length].value,
+    caption: null,
+    icon: null,
+    tone: 'teal',
+    detailPath: null,
+    data: null,
+  }))
 }
 
 function buildParticipants(count: number): AppItem[] {
@@ -1254,36 +1251,6 @@ function profileSectionScreen(section: string): AppScreenResponse {
       ],
     })
   }
-  if (section === 'friends') {
-    const friends: AppItem[] = ['하민', '지우', '민서', '서연', '지훈', '도윤'].map((name, index) => ({
-      id: `mock-friend-${index + 1}`,
-      title: name,
-      subtitle: index % 2 === 0 ? '20대 후반 · IT/개발 · 서울' : '20대 중반 · 기획/마케팅 · 경기',
-      value: index % 2 === 0 ? '상호 팔로우' : '추천 친구',
-      caption: null,
-      icon: 'profile',
-      tone: 'teal',
-      detailPath: null,
-      data: { relation: 'friends', detailDisabled: true, isAnonymous: false },
-    }))
-    return screen({
-      screenId: 'profile:friends',
-      title: '친구',
-      tab: 'profile',
-      sections: [
-        {
-          id: 'profile-friends-list',
-          kind: 'relationshipList',
-          title: '친구',
-          subtitle: '상호 팔로우를 우선으로 구성한 실명 친구 목데이터입니다.',
-          metrics: [{ label: '전체', value: `${friends.length}명`, caption: '상호 팔로우 우선', tone: 'teal' }],
-          items: friends,
-          data: { relation: 'friends', detailDisabled: true },
-        },
-      ],
-      meta: { friendCount: friends.length, detailDisabled: true },
-    })
-  }
   const relation = section === 'followers' ? 'followers' : 'following'
   if (section === 'activities') {
     return screen({
@@ -1315,176 +1282,6 @@ function profileSectionScreen(section: string): AppScreenResponse {
       },
     ],
   })
-}
-
-function profileDetailScreen(targetUserId?: string): AppScreenResponse {
-  const resolvedUserId = targetUserId ?? mockUser.userId
-  const isSelf = resolvedUserId === mockUser.userId
-  const title = isSelf ? mockUser.displayName : anonymousAlias(resolvedUserId)
-  const identityData = isSelf
-    ? { targetUserId: resolvedUserId, isSelf: true, isAnonymous: false }
-    : anonymousIdentityData(resolvedUserId, { targetUserId: resolvedUserId, isSelf: false })
-  const assetItems = mockAssetItems(resolvedUserId, isSelf)
-  const sections: AppSection[] = [
-    {
-      id: 'profile-detail-hero',
-      kind: 'profileDetailHero',
-      title,
-      subtitle: '20대 후반 · IT/개발 · 서울 · 안정 추구형',
-      metrics: [
-        { label: '팔로워', value: '14명', caption: '나를 보는 사람', tone: 'teal' },
-        { label: '팔로잉', value: '5명', caption: '내가 보는 사람', tone: 'teal' },
-      ],
-      data: identityData,
-    },
-    {
-      id: 'profile-detail-summary',
-      kind: 'profileDetailSummary',
-      title: '금융 요약',
-      subtitle: '소득, 자산, 소비를 한눈에 봅니다.',
-      metrics: [
-        { label: '연 소득', value: '3,600만원', caption: '월 300만원', tone: 'teal' },
-        { label: '총 금융자산', value: '1,820만원', caption: '연결 자산 기준', tone: 'teal' },
-        { label: '이번 달 소비', value: '632,000원', caption: '저축 780,000원', tone: 'warning' },
-      ],
-      data: { targetUserId: resolvedUserId },
-    },
-    ...(isSelf ? [{
-      id: 'profile-detail-missions',
-      kind: 'profileDetailMissions',
-      title: '진행 중인 미션',
-      subtitle: '내 행동 데이터로 추적 중인 목표입니다.',
-      items: [
-        { id: 'mission-auto', title: '비상금 자동이체 10만 원 설정하기', subtitle: '이번 달', value: '0%', caption: '+100P', icon: 'saving', tone: 'teal', detailPath: '/missions/mission-auto-transfer-small', data: null },
-        { id: 'mission-fixed', title: '고정 지출 5% 줄이기', subtitle: '구독 점검', value: '45%', caption: '+180P', icon: 'check-square', tone: 'warning', detailPath: '/missions/mission-fixed-cost', data: null },
-      ],
-      data: { selfOnly: true },
-    } satisfies AppSection] : []),
-    {
-      id: 'profile-detail-income',
-      kind: 'profileDetailIncome',
-      title: '소득과 저축',
-      subtitle: '월 소득과 저축 흐름을 기준으로 봅니다.',
-      metrics: [
-        { label: '월 소득', value: '300만원', caption: '연 3,600만원', tone: 'teal' },
-        { label: '월 저축', value: '78만원', caption: '저축률 26%', tone: 'teal', progress: 26 },
-      ],
-      data: { savingsRate: 26 },
-    },
-    {
-      id: 'profile-detail-assets',
-      kind: 'profileDetailAssets',
-      title: '금융자산',
-      subtitle: '계좌와 투자 상품을 카테고리별로 봅니다.',
-      metrics: [{ label: '총 자산', value: '1,820만원', caption: '계좌/투자 평가 기준', tone: 'teal' }],
-      items: assetItems,
-      data: { totalAmount: 18200000 },
-    },
-    {
-      id: 'profile-detail-spending',
-      kind: 'profileDetailSpending',
-      title: '이번 달 소비',
-      subtitle: '개별 거래는 숨기고 카테고리 합계만 보여줍니다.',
-      metrics: [{ label: '총 소비', value: '632,000원', caption: '식비가 가장 큰 지출이에요.', tone: 'warning' }],
-      items: [
-        { id: 'spending-food', title: '식비', subtitle: '카테고리 합계', value: '198,000원', caption: '31%', icon: 'food', tone: 'warning', data: { sharePercent: 31, transactionRowsHidden: true } },
-        { id: 'spending-cafe', title: '카페/간식', subtitle: '카테고리 합계', value: '68,000원', caption: '11%', icon: 'cafe', tone: 'warning', data: { sharePercent: 11, transactionRowsHidden: true } },
-        { id: 'spending-shopping', title: '쇼핑', subtitle: '카테고리 합계', value: '86,000원', caption: '14%', icon: 'cart', tone: 'warning', data: { sharePercent: 14, transactionRowsHidden: true } },
-      ],
-      data: { transactionRowsHidden: true },
-    },
-    ...(isSelf ? [{
-      id: 'profile-detail-report',
-      kind: 'profileDetailReport',
-      title: '월간 분석 리포트',
-      subtitle: '내 데이터 기준으로만 제공되는 개인 분석입니다.',
-      items: [
-        { id: 'report-saving', title: '저축 루틴', subtitle: '저축률 26% 흐름을 유지하고 있어요.', icon: 'saving', tone: 'teal' },
-        { id: 'report-spending', title: '소비 점검', subtitle: '식비가 가장 큰 지출이에요.', icon: 'chart', tone: 'warning' },
-      ],
-      data: { selfOnly: true },
-    } satisfies AppSection] : []),
-    {
-      id: 'profile-detail-insurance',
-      kind: 'profileDetailInsurance',
-      title: '보험',
-      subtitle: '현재 synthetic MyData에는 보험 상세가 없어 연결 상태만 표시합니다.',
-      metrics: [{ label: '보험 데이터', value: '미연결', caption: '후속 MyData 범위', tone: 'muted' }],
-      data: { empty: true },
-    },
-  ]
-  return screen({
-    screenId: `profile:detail:${resolvedUserId}`,
-    title: isSelf ? '내 프로필 상세' : '프로필 상세',
-    tab: 'profile',
-    sections,
-    meta: { targetUserId: resolvedUserId, isSelf, actualNameHidden: !isSelf },
-  })
-}
-
-function profileAssetDetailScreen(assetId: string, targetUserId?: string): AppScreenResponse {
-  const resolvedUserId = targetUserId ?? mockUser.userId
-  const isSelf = resolvedUserId === mockUser.userId
-  const asset = mockAssetItems(resolvedUserId, isSelf).find((item) => item.id === assetId) ?? mockAssetItems(resolvedUserId, isSelf)[0]
-  return screen({
-    screenId: `profile:detail:${resolvedUserId}:asset:${asset.id}`,
-    title: asset.title,
-    tab: 'profile',
-    sections: [
-      {
-        id: 'asset-detail-hero',
-        kind: 'profileAssetDetailHero',
-        title: asset.title,
-        subtitle: `${isSelf ? mockUser.displayName : anonymousAlias(resolvedUserId)}님의 ${asset.title}`,
-        metrics: [{ label: '합계', value: asset.value ?? '0원', caption: asset.subtitle ?? '연결 자산 기준', tone: 'teal', progress: 68 }],
-        data: isSelf ? { targetUserId: resolvedUserId, assetId: asset.id } : anonymousIdentityData(resolvedUserId, { targetUserId: resolvedUserId, assetId: asset.id }),
-      },
-      {
-        id: 'asset-detail-items',
-        kind: 'profileAssetDetailList',
-        title: '연결 상품',
-        subtitle: '계좌번호, 카드번호, 거래번호는 표시하지 않습니다.',
-        items: mockAssetDetailItems(asset.id),
-        data: { identifiersHidden: true },
-      },
-    ],
-    meta: { targetUserId: resolvedUserId, assetId: asset.id, identifiersHidden: true },
-  })
-}
-
-function mockAssetItems(targetUserId: string, isSelf: boolean): AppItem[] {
-  const basePath = isSelf ? '/profile/detail/assets' : `/profile/detail/${targetUserId}/assets`
-  return [
-    { id: 'checking', title: '입출금', subtitle: '생활비와 간편결제', value: '520만원', caption: '29%', icon: 'saving', tone: 'teal', detailPath: `${basePath}/checking`, data: { assetId: 'checking', sharePercent: 29 } },
-    { id: 'savings', title: '적금/비상금', subtitle: '저축성 계좌', value: '780만원', caption: '43%', icon: 'saving', tone: 'teal', detailPath: `${basePath}/savings`, data: { assetId: 'savings', sharePercent: 43 } },
-    { id: 'deposit', title: '청약', subtitle: '청약 준비', value: '180만원', caption: '10%', icon: 'fund', tone: 'teal', detailPath: `${basePath}/deposit`, data: { assetId: 'deposit', sharePercent: 10 } },
-    { id: 'investment', title: '투자', subtitle: '주식/ETF 평가', value: '340만원', caption: '18%', icon: 'stocks', tone: 'teal', detailPath: `${basePath}/investment`, data: { assetId: 'investment', sharePercent: 18 } },
-  ]
-}
-
-function mockAssetDetailItems(assetId: string): AppItem[] {
-  if (assetId === 'investment') {
-    return [
-      { id: 'invest-product-1', title: 'KOSPI200 ETF', subtitle: '투자 상품', value: '1,420,000원', caption: '+4.2%', icon: 'stocks', tone: 'teal', data: { identifiersHidden: true } },
-      { id: 'invest-product-2', title: '미국 S&P500 ETF', subtitle: '투자 상품', value: '1,120,000원', caption: '+6.1%', icon: 'stocks', tone: 'teal', data: { identifiersHidden: true } },
-      { id: 'invest-cash', title: '투자 대기 현금', subtitle: '예수금', value: '860,000원', icon: 'saving', tone: 'teal', data: { identifiersHidden: true } },
-    ]
-  }
-  if (assetId === 'deposit') {
-    return [
-      { id: 'deposit-1', title: '청년 주택청약', subtitle: '은행 계좌', value: '1,800,000원', icon: 'fund', tone: 'teal', data: { identifiersHidden: true } },
-    ]
-  }
-  if (assetId === 'savings') {
-    return [
-      { id: 'saving-1', title: '비상금 적금', subtitle: '은행 계좌', value: '4,200,000원', icon: 'saving', tone: 'teal', data: { identifiersHidden: true } },
-      { id: 'saving-2', title: '청년미래적금', subtitle: '은행 계좌', value: '3,600,000원', icon: 'saving', tone: 'teal', data: { identifiersHidden: true } },
-    ]
-  }
-  return [
-    { id: 'checking-1', title: '생활비 입출금', subtitle: '은행 계좌', value: '4,800,000원', icon: 'saving', tone: 'teal', data: { identifiersHidden: true } },
-    { id: 'efinance-1', title: '간편결제 머니', subtitle: '전자금융 계정', value: '잔액 미제공', icon: 'saving', tone: 'teal', data: { identifiersHidden: true } },
-  ]
 }
 
 function birthdaysScreen(): AppScreenResponse {
@@ -1650,8 +1447,6 @@ export const mockApi = {
   getAppRecordDetail: (date: string) => wait(recordDetailScreen(date)),
   getAppProfile: () => wait(profileScreen()),
   getAppProfileSection: (section: string) => wait(profileSectionScreen(section)),
-  getAppProfileDetail: (targetUserId?: string) => wait(profileDetailScreen(targetUserId)),
-  getAppProfileAssetDetail: (assetId: string, targetUserId?: string) => wait(profileAssetDetailScreen(assetId, targetUserId)),
   getAppBirthdays: () => wait(birthdaysScreen()),
   getAppBirthdayFlow: (birthdayId: string) => wait(birthdayFlowScreen(birthdayId)),
   contributeBirthdayFund: (fundId: string): Promise<AppActionResultResponse> =>

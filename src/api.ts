@@ -186,15 +186,6 @@ const realApi = {
     request<AppScreenResponse>('/api/app/profile', { token }),
   getAppProfileSection: (section: string, token?: string) =>
     request<AppScreenResponse>(`/api/app/profile/sections/${section}`, { token }),
-  getAppProfileDetail: (targetUserId?: string, token?: string) =>
-    request<AppScreenResponse>(targetUserId ? `/api/app/profile/detail/${targetUserId}` : '/api/app/profile/detail', { token }),
-  getAppProfileAssetDetail: (assetId: string, targetUserId?: string, token?: string) =>
-    request<AppScreenResponse>(
-      targetUserId
-        ? `/api/app/profile/detail/${targetUserId}/assets/${assetId}`
-        : `/api/app/profile/detail/assets/${assetId}`,
-      { token },
-    ),
   getAppBirthdays: (token?: string) =>
     request<AppScreenResponse>('/api/app/birthdays', { token }),
   getAppBirthdayFlow: (birthdayId: string, token?: string) =>

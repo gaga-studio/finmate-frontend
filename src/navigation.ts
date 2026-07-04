@@ -96,11 +96,8 @@ export function parseRoute(pathname: string): Route {
   if (parts[0] === 'profile' && parts[1] === 'detail' && parts[2] === 'assets' && parts[3]) {
     return { name: 'screen', screen: 'profile-detail-asset', param: parts[3] }
   }
-  if (parts[0] === 'profile' && parts[1] === 'detail' && parts[2] && parts[3] === 'assets' && parts[4]) {
-    return { name: 'screen', screen: 'profile-detail-asset', param: `${parts[2]}|${parts[4]}` }
-  }
   if (parts[0] === 'profile' && parts[1] === 'detail') {
-    return { name: 'screen', screen: 'profile-detail', param: parts[2] }
+    return { name: 'screen', screen: 'profile-detail' }
   }
   if (parts[0] === 'profile') {
     return parts[1]
