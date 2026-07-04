@@ -8,6 +8,12 @@ import type {
   ProductOnboardingRequest,
   UserMeResponse,
 } from './types'
+import {
+  birthdayFundScenario,
+  getBirthdayWishlistOption,
+  birthdayOptionPriceLabel,
+  birthdayWishlistOptionRecords,
+} from './birthdayFundData'
 
 function wait<T>(value: T, ms = 220): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms))
@@ -76,7 +82,38 @@ function anonymousIdentityData(userId: string, extra: Record<string, unknown> = 
   }
 }
 
-const mockBirthdayOwnerId = 'mock-birthday-owner-p002'
+const birthdayProgress = Math.round((birthdayFundScenario.collectedAmount / birthdayFundScenario.goalAmount) * 100)
+/** 익명 상세 프로필의 "금융자산" 섹션 — 저축/투자/연금/청약 중 실제로 하고 있는 것만 비중과 함께 보여준다. */
+function buildAssetCategories(
+  index: number,
+  signals: { stockSignal: boolean; savingSignal: boolean; pensionSignal: boolean; subscriptionSignal: boolean },
+): Array<{ id: string; label: string; amount: number; amountLabel: string; sharePercent: number; note: string }> {
+  const raw = [
+    signals.savingSignal
+      ? { id: 'savings', label: '예적금', amount: 3_200_000 + index * 120_000, note: '매달 자동이체로 저축 중' }
+      : null,
+    signals.stockSignal
+      ? { id: 'invest', label: '투자', amount: 1_800_000 + index * 95_000, note: '국내·해외 ETF 중심' }
+      : null,
+    signals.pensionSignal
+      ? { id: 'pension', label: '연금', amount: 900_000 + index * 40_000, note: '연금저축으로 노후 준비 중' }
+      : null,
+    signals.subscriptionSignal
+      ? { id: 'subscription', label: '청약', amount: 500_000 + index * 30_000, note: '주택청약종합저축 가입' }
+      : null,
+  ].filter((category): category is { id: string; label: string; amount: number; note: string } => category !== null)
+
+  const withFallback = raw.length > 0
+    ? raw
+    : [{ id: 'savings', label: '예적금', amount: 500_000 + index * 10_000, note: '비상금 통장 보유' }]
+
+  const total = withFallback.reduce((sum, category) => sum + category.amount, 0)
+  return withFallback.map((category) => ({
+    ...category,
+    amountLabel: `${category.amount.toLocaleString('ko-KR')}원`,
+    sharePercent: Math.round((category.amount / total) * 100),
+  }))
+}
 
 function buildCompareProfiles(count: number): AppItem[] {
   const jobs = ['IT/개발', '마케팅', '금융', '디자인', '대학생/취준']
@@ -87,8 +124,12 @@ function buildCompareProfiles(count: number): AppItem[] {
     const stockSignal = index % 3 === 0
     const savingSignal = index % 2 === 0
     const pensionSignal = index % 4 === 0
+    const subscriptionSignal = index % 5 === 2
     const foodSpend = 210000 + index * 8300
     const cafeSpend = 42000 + index * 1900
+    const assetCategories = buildAssetCategories(index, { stockSignal, savingSignal, pensionSignal, subscriptionSignal })
+    const totalAssets = assetCategories.reduce((sum, category) => sum + category.amount, 0)
+    const investmentRatio = assetCategories.find((category) => category.id === 'invest')?.sharePercent ?? 0
     return {
       id: userId,
       title: anonymousAlias(userId),
@@ -97,7 +138,7 @@ function buildCompareProfiles(count: number): AppItem[] {
       caption: undefined,
       icon: 'profile',
       tone: 'teal',
-      detailPath: null,
+      detailPath: `/compare/members/${userId}`,
       data: anonymousIdentityData(userId, {
         ageBand: '20대 후반',
         jobCategory: jobs[index % jobs.length],
@@ -107,6 +148,7 @@ function buildCompareProfiles(count: number): AppItem[] {
         stockSignal,
         savingSignal,
         pensionSignal,
+        subscriptionSignal,
         // anonymous scope 전용 — 카테고리 단위 정확 금액 (가맹점 단위 절대 금지)
         categorySpending: [
           { category: '식비', amountLabel: `${foodSpend.toLocaleString('ko-KR')}원` },
@@ -114,24 +156,55 @@ function buildCompareProfiles(count: number): AppItem[] {
         ],
         cashflowPattern: '월급날 25일 · 급여 직후 3일 지출 집중',
         savingsLabel: savingSignal ? `${(320 + index * 12).toLocaleString('ko-KR')}만원` : null,
+        assetCategories,
         productActions: [
           stockSignal ? 'ETF 투자중' : '',
           savingSignal ? '청년미래적금 가입' : '',
           pensionSignal ? '연금 준비중' : '',
+          subscriptionSignal ? '청약 저축 중' : '',
         ].filter(Boolean),
+        // anonymous scope 전용 — 1:1 비교(EXP-04)에서 "나"의 값과 견주는 지표
+        monthlyIncome: 2_800_000 + index * 65_000,
+        monthlySavings: 260_000 + index * 9_000,
+        monthlySpending: 720_000 + index * 22_000,
+        totalAssets,
+        investmentRatio,
+        emergencyFundMonths: Math.round((1.1 + (index % 5) * 0.35) * 10) / 10,
       }),
     }
   })
 }
 
+/** 그룹 리포트의 "이 조건에 맞는 사용자" 목록 — 상세 프로필(detailPath)에서 동일 id로 다시 조회한다. */
+function buildCompareGroupMembers(): AppItem[] {
+  return buildCompareProfiles(12).map((item, index) => ({
+    ...item,
+    detailPath: `/compare/members/${item.id}`,
+    data: {
+      ...item.data,
+      ageBand: '20대 후반',
+      jobCategory: ['IT/개발', '디자인', '마케팅', '금융'][index % 4],
+      incomeBand: '3,000만원 ~ 4,000만원',
+      score: 68 + (index % 8),
+    },
+  }))
+}
+
 const friendProductActionPool = ['청약 시작', '청년미래적금 가입', 'ETF 경험 있음', '비상금 통장 개설', '연금 준비중', '적금 자동이체 시작']
+const friendNamePool = [
+  '강민', '지수', '민준', '서연', '현우', '하린', '도윤', '유진', '시우', '수빈',
+  '지호', '예린', '준서', '채원', '우진', '나연', '건우', '다은', '태윤', '소민',
+  '은우', '가은', '지훈', '아영', '주원', '유나', '재윤', '보민', '하준', '세은',
+  '선우', '예준', '유정', '민서', '시윤', '지민', '도현', '하은', '정우', '수아',
+  '태민', '서진', '예성', '다연', '승현', '채린', '윤호', '소율', '민재', '지안',
+] as const
 
 function buildPeople(count: number, relation: 'following' | 'followers'): AppItem[] {
   return Array.from({ length: count }, (_, index) => {
     const userId = `mock-${relation}-p${String(index + 2).padStart(3, '0')}`
     return {
       id: userId,
-      title: anonymousAlias(userId),
+      title: friendNamePool[index % friendNamePool.length],
       subtitle: '공개 금융 루틴 진행 중',
       value: `${(index + 1) * 2}개 공개`,
       caption: null,
@@ -238,7 +311,7 @@ function homeScreen(): AppScreenResponse {
     {
       id: 'following-summary',
       kind: 'signalGrid',
-      title: '팔로잉 금융 근황',
+      title: '친구 금융 근황',
       subtitle: '나만 안 하고 있는 건 아닌지 확인해보세요.',
       detailPath: '/compare',
       metrics: [{ label: '이번 주 비상금 미션 완료', value: '3명', tone: 'red' }],
@@ -247,9 +320,9 @@ function homeScreen(): AppScreenResponse {
     {
       id: 'birthday-alert',
       kind: 'actionCard',
-      title: `${anonymousAlias(mockBirthdayOwnerId)}님의 생일펀드`,
-      subtitle: '친구들과 함께 축하 펀드를 채워보세요.',
-      metrics: [{ label: '모금 현황', value: '62%', progress: 62 }],
+      title: `친구 ${birthdayFundScenario.friendName}가 생일 위시리스트를 등록했어요`,
+      subtitle: '선물 대신 금액을 보태면 친구가 원하는 위시리스트를 직접 살 수 있어요.',
+      metrics: [{ label: '현재 모인 금액', value: `${birthdayFundScenario.collectedAmount.toLocaleString('ko-KR')}원`, caption: `목표 ${birthdayFundScenario.goalAmount.toLocaleString('ko-KR')}원`, progress: birthdayProgress }],
       actions: [{ label: '펀드 보기', path: '/birthdays', method: 'GET', tone: 'primary' }],
     },
   ]
@@ -282,18 +355,19 @@ function compareScreen(): AppScreenResponse {
       id: 'recommended',
       kind: 'compareGroupRail',
       title: 'AI 추천 그룹',
-      subtitle: '나이, 직업, 소득, 생활권이 가까운 합성 사용자를 묶었어요.',
+      subtitle: '추천 그룹의 실제 조건은 포인트를 써야 공개돼요.',
       items: [
         {
           id: 'rec-1',
-          title: '20대 · IT/개발 · 서울 강남권',
-          subtitle: '월 소득 300만~400만 원',
-          value: '1,246명',
-          caption: '공개 금융 루틴이 가까워요',
+          title: 'AI 추천 그룹 1',
+          subtitle: '열람 전에는 실제 그룹 특성이 가려져 있어요.',
+          value: '20P',
+          caption: '리포트를 열면 연령대 · 직군 · 생활권이 공개돼요',
           icon: 'stocks',
           tone: 'teal',
           detailPath: '/compare/groups/rec-1/preview',
           data: {
+            pointCost: 20,
             ageBand: '20대',
             incomeBand: '3,000만원 ~ 4,000만원',
             jobCategory: 'IT/개발',
@@ -305,14 +379,15 @@ function compareScreen(): AppScreenResponse {
         },
         {
           id: 'rec-2',
-          title: '또래 직장인 평균 그룹',
-          subtitle: '월 소득 300만~400만 원',
-          value: '842명',
-          caption: '전반적인 평균 흐름을 보기 좋아요',
+          title: 'AI 추천 그룹 2',
+          subtitle: '열람 전에는 실제 그룹 특성이 가려져 있어요.',
+          value: '20P',
+          caption: '리포트를 열면 추천 그룹의 평균 흐름이 공개돼요',
           icon: 'saving',
           tone: 'teal',
           detailPath: '/compare/groups/rec-2/preview',
           data: {
+            pointCost: 20,
             ageBand: '전체',
             incomeBand: '전체',
             jobCategory: '전체',
@@ -397,11 +472,13 @@ function compareFilterScreen(filters: AppCompareSearchRequest = defaultCompareFi
 }
 
 function compareGroupPreviewScreen(recommendationId: string): AppScreenResponse {
-  const previewById: Record<string, { title: string; subtitle: string; memberCount: number; filters: AppCompareSearchRequest; features: AppItem[] }> = {
+  const previewById: Record<string, { title: string; subtitle: string; memberCount: number; comparisonId: string; previewLabel: string; filters: AppCompareSearchRequest; features: AppItem[] }> = {
     'rec-1': {
       title: '20대 · IT/개발 · 서울 강남권',
       subtitle: '월 소득 300만~400만 원',
       memberCount: 1246,
+      comparisonId: 'cmp-001',
+      previewLabel: 'AI 추천 그룹 1',
       filters: {
         ageBand: '20대',
         incomeBand: '3,000만원 ~ 4,000만원',
@@ -421,6 +498,8 @@ function compareGroupPreviewScreen(recommendationId: string): AppScreenResponse 
       title: '또래 직장인 평균 그룹',
       subtitle: '월 소득 300만~400만 원',
       memberCount: 842,
+      comparisonId: 'cmp-002',
+      previewLabel: 'AI 추천 그룹 2',
       filters: {
         ageBand: '전체',
         incomeBand: '전체',
@@ -462,9 +541,13 @@ function compareGroupPreviewScreen(recommendationId: string): AppScreenResponse 
     ],
     meta: {
       recommendationId,
+      comparisonId: preview.comparisonId,
       filters: preview.filters,
       memberCount: preview.memberCount,
       groupTitle: preview.title,
+      previewLabel: preview.previewLabel,
+      pointCost: 20,
+      resultPath: `/compare/results/${preview.comparisonId}`,
     },
   })
 }
@@ -485,18 +568,25 @@ function compareResultScreen(comparisonId: string): AppScreenResponse {
       title: '한 줄 요약',
       subtitle: comparisonId === 'cmp-002'
         ? '이 그룹은 소비와 저축 흐름이 전반적으로 균형적이고, 투자 비중은 과하지 않은 평균형이에요.'
-        : '이 그룹은 저축 루틴이 안정적이고, 투자 비중은 비교적 낮은 편이에요.',
+        : '이 그룹은 20대 · IT/개발 직군이 많고 서울 강남권 생활권이 중심이에요. 저축 루틴이 안정적이고 투자 비중은 비교적 낮은 편이에요.',
     },
     {
       id: 'report-metrics',
       kind: 'compareReportMetricGrid',
       title: '그룹 주요 특징',
-      metrics: [
-        { label: '평균 월 소득', value: '340만 원' },
-        { label: '평균 저축액', value: '35만 원' },
-        { label: '평균 자산', value: '960만 원' },
-        { label: '저축 / 투자 비율', value: '12% / 8%' },
-      ],
+      metrics: comparisonId === 'cmp-002'
+        ? [
+            { label: '평균 월 소득', value: '340만 원' },
+            { label: '평균 저축액', value: '35만 원' },
+            { label: '평균 자산', value: '960만 원' },
+            { label: '저축 / 투자 비율', value: '12% / 8%' },
+          ]
+        : [
+            { label: '대표 연령대', value: '20대' },
+            { label: '대표 직군', value: 'IT/개발' },
+            { label: '주 생활권', value: '서울 강남권' },
+            { label: '평균 저축액', value: '35만 원' },
+          ],
     },
     {
       id: 'report-distribution',
@@ -515,16 +605,7 @@ function compareResultScreen(comparisonId: string): AppScreenResponse {
       kind: 'compareGroupMembers',
       title: '그룹에 포함된 사용자',
       subtitle: `${comparisonId === 'cmp-002' ? 842 : 1246}명의 공개 금융 프로필입니다.`,
-      items: buildCompareProfiles(12).map((item, index) => ({
-        ...item,
-        data: {
-          ...item.data,
-          ageBand: '20대 후반',
-          jobCategory: ['IT/개발', '디자인', '마케팅', '금융'][index % 4],
-          incomeBand: '3,000만원 ~ 4,000만원',
-          score: 68 + (index % 8),
-        },
-      })),
+      items: buildCompareGroupMembers(),
       data: { pageSize: 6, initialVisible: 6, total: comparisonId === 'cmp-002' ? 842 : 1246 },
     },
   ]
@@ -534,6 +615,19 @@ function compareResultScreen(comparisonId: string): AppScreenResponse {
     tab: 'compare',
     sections,
     meta: { comparisonId, memberCount: comparisonId === 'cmp-002' ? 842 : 1246 },
+  })
+}
+
+function compareMemberDetailScreen(memberId: string): AppScreenResponse {
+  const member = buildCompareGroupMembers().find((item) => item.id === memberId) ?? buildCompareGroupMembers()[0]
+  return screen({
+    screenId: `compare:member:${memberId}`,
+    title: '익명 프로필',
+    tab: 'compare',
+    sections: [
+      { id: 'member', kind: 'compareMemberDetail', title: member.title, items: [member] },
+    ],
+    meta: { memberId },
   })
 }
 
@@ -1197,7 +1291,7 @@ function profileScreen(): AppScreenResponse {
         { id: 'study', title: '재테크 공부', value: '62%', caption: '79명', icon: 'study', tone: 'teal', detailPath: null, data: { progress: 62 } },
       ],
     },
-    { id: 'following-top', kind: 'rankList', title: '팔로잉 TOP 5 금융 활동', items: buildActivity(5) },
+    { id: 'following-top', kind: 'rankList', title: '친구 TOP 5 금융 활동', items: buildActivity(5) },
     {
       id: 'profile-settings',
       kind: 'actionCard',
@@ -1261,7 +1355,7 @@ function profileSectionScreen(section: string): AppScreenResponse {
         {
           id: 'activity',
           kind: 'rankList',
-          title: '팔로잉 TOP 5 금융 활동',
+          title: '친구 TOP 5 금융 활동',
           items: buildActivity(5),
         },
       ],
@@ -1269,16 +1363,16 @@ function profileSectionScreen(section: string): AppScreenResponse {
   }
   return screen({
     screenId: `profile:section:${section}`,
-    title: relation === 'followers' ? '팔로워 금융 현황' : '팔로잉',
+    title: relation === 'followers' ? '팔로워 금융 현황' : '친구 금융 현황',
     tab: 'profile',
     sections: [
       {
         id: `relation-${relation}`,
         kind: 'relationshipList',
-        title: relation === 'followers' ? '함께 성장 중인 팔로워' : '내가 보고 있는 금융 루틴',
+        title: relation === 'followers' ? '함께 성장 중인 팔로워' : '내 친구 금융 루틴',
         data: { relation },
-        metrics: [{ label: relation === 'followers' ? '팔로워' : '팔로잉', value: `${relation === 'followers' ? 128 : 3}명` }],
-        items: buildPeople(relation === 'followers' ? 5 : 3, relation),
+        metrics: [{ label: relation === 'followers' ? '팔로워' : '친구', value: `${relation === 'followers' ? 128 : 43}명` }],
+        items: buildPeople(relation === 'followers' ? 5 : 43, relation),
       },
     ],
   })
@@ -1293,11 +1387,21 @@ function birthdaysScreen(): AppScreenResponse {
       {
         id: 'upcoming',
         kind: 'birthday',
-        title: '다가오는 생일펀드',
-        subtitle: `${anonymousAlias(mockBirthdayOwnerId)}님의 생일이 3일 남았어요.`,
-        metrics: [{ label: '모금 현황', value: '62%', progress: 62 }],
-        detailPath: '/birthdays/birthday-jiwoo',
-        actions: [{ label: '참여하기', path: '/birthday-funds/fund-001/contribute', method: 'GET', tone: 'primary' }],
+        title: `${birthdayFundScenario.friendName}의 생일 위시리스트`,
+        subtitle: `친구 ${birthdayFundScenario.friendName}가 위시리스트를 등록했어요. ${birthdayFundScenario.daysUntilBirthday}일 안에 함께 보태보세요.`,
+        metrics: [{ label: '모인 금액', value: `${birthdayFundScenario.collectedAmount.toLocaleString('ko-KR')}원`, caption: `목표 ${birthdayFundScenario.goalAmount.toLocaleString('ko-KR')}원`, progress: birthdayProgress }],
+        detailPath: `/birthdays/${birthdayFundScenario.birthdayId}`,
+        actions: [{ label: '참여하기', path: `/birthday-funds/${birthdayFundScenario.fundId}/contribute`, method: 'GET', tone: 'primary' }],
+        data: {
+          collectedAmount: birthdayFundScenario.collectedAmount,
+          goalAmount: birthdayFundScenario.goalAmount,
+          participants: birthdayFundScenario.participants,
+          totalFriends: birthdayFundScenario.totalFriends,
+          wishlistTitle: birthdayFundScenario.wishlistTitle,
+          wishlistSummary: birthdayFundScenario.wishlistSummary,
+          featuredOptionId: birthdayFundScenario.featuredOptionId,
+          wishlistOptions: birthdayWishlistOptionRecords(),
+        },
       },
     ],
   })
@@ -1312,15 +1416,24 @@ function birthdayFlowScreen(birthdayId: string): AppScreenResponse {
       {
         id: 'event',
         kind: 'birthday',
-        title: `${anonymousAlias(mockBirthdayOwnerId)}님의 생일펀드`,
-        subtitle: '친구들과 함께 축하 펀드를 채워보세요.',
+        title: `${birthdayFundScenario.friendName}의 생일 위시리스트 펀드`,
+        subtitle: '선물 대신 금액을 보태면 민지가 직접 원하는 위시리스트를 고를 수 있어요.',
         metrics: [
-          { label: '모금 현황', value: '62%', progress: 62 },
-          { label: '참여 인원', value: '8명' },
+          { label: '모인 금액', value: `${birthdayFundScenario.collectedAmount.toLocaleString('ko-KR')}원`, caption: `목표 ${birthdayFundScenario.goalAmount.toLocaleString('ko-KR')}원`, progress: birthdayProgress },
+          { label: '가장 많이 고른 금액', value: birthdayOptionPriceLabel(getBirthdayWishlistOption(birthdayFundScenario.featuredOptionId).price) },
         ],
-        data: { collectedAmount: 62000, goalAmount: 100000, participants: 8, totalFriends: 15 },
+        data: {
+          collectedAmount: birthdayFundScenario.collectedAmount,
+          goalAmount: birthdayFundScenario.goalAmount,
+          participants: birthdayFundScenario.participants,
+          totalFriends: birthdayFundScenario.totalFriends,
+          wishlistTitle: birthdayFundScenario.wishlistTitle,
+          wishlistSummary: birthdayFundScenario.wishlistSummary,
+          featuredOptionId: birthdayFundScenario.featuredOptionId,
+          wishlistOptions: birthdayWishlistOptionRecords(),
+        },
         items: buildParticipants(5),
-        actions: [{ label: '참여하기', path: '/birthday-funds/fund-001/contribute', method: 'GET', tone: 'primary' }],
+        actions: [{ label: '참여하기', path: `/birthday-funds/${birthdayFundScenario.fundId}/contribute`, method: 'GET', tone: 'primary' }],
       },
     ],
   })
@@ -1335,8 +1448,8 @@ function birthdayCompleteScreen(fundId: string): AppScreenResponse {
       {
         id: 'complete',
         kind: 'coach',
-        title: '축하 메시지가 전달됐어요',
-        subtitle: '참여해주셔서 감사해요!',
+        title: '선물 대신 금액을 보탰어요',
+        subtitle: `${birthdayFundScenario.friendName}가 위시리스트를 직접 살 수 있도록 축하 마음을 전달했어요.`,
         actions: [{ label: '홈으로', path: '/home', method: 'GET', tone: 'primary' }],
       },
     ],
@@ -1352,8 +1465,8 @@ function birthdayOpenScreen(): AppScreenResponse {
       {
         id: 'open',
         kind: 'birthday',
-        title: '내 생일펀드 오픈하기',
-        subtitle: '친구들에게 공개하고 축하를 받아보세요.',
+        title: '내 생일 위시리스트 펀드 오픈하기',
+        subtitle: '위시리스트를 등록하고 친구들이 선물 대신 금액을 보탤 수 있게 열어보세요.',
         actions: [{ label: '오픈하기', path: '/birthday-funds/me/open', method: 'POST', tone: 'primary' }],
       },
     ],
@@ -1369,8 +1482,8 @@ function birthdayShareScreen(): AppScreenResponse {
       {
         id: 'share',
         kind: 'birthday',
-        title: '친구들에게 공유하기',
-        subtitle: '링크를 공유하면 펀드 참여를 받을 수 있어요.',
+        title: '친구들에게 위시리스트 공유하기',
+        subtitle: '링크를 공유하면 친구들이 선물 대신 금액을 보탤 수 있어요.',
         actions: [{ label: '공유하기', path: '/birthday-funds/me/share', method: 'POST', tone: 'primary' }],
       },
     ],
@@ -1386,8 +1499,8 @@ function birthdayStatusScreen(): AppScreenResponse {
       {
         id: 'status',
         kind: 'birthday',
-        title: '내 생일펀드 현황',
-        subtitle: '현재까지 모인 금액과 참여자를 확인해요.',
+        title: '내 생일 위시리스트 펀드 현황',
+        subtitle: '현재까지 모인 금액과 어떤 마음이 모였는지 확인해요.',
         metrics: [
           { label: '모금 현황', value: '45%', progress: 45 },
           { label: '참여 인원', value: '5명' },
@@ -1417,6 +1530,7 @@ export const mockApi = {
     wait({ status: 'CREATED', title: '비교 그룹 생성 완료', message: '1,246명의 공개 금융 데이터 평균과 비교합니다.', nextPath: '/compare/results/cmp-001', data: { comparisonId: 'cmp-001', memberCount: 1246, reused: false } }),
   getAppCompareGroupPreview: (recommendationId: string) => wait(compareGroupPreviewScreen(recommendationId)),
   getAppCompareResult: (comparisonId = 'cmp-001') => wait(compareResultScreen(comparisonId)),
+  getAppCompareMemberDetail: (memberId: string) => wait(compareMemberDetailScreen(memberId)),
   getAppComparePersonalFlow: (comparisonId = 'cmp-001') => wait(comparePersonalFlowScreen(comparisonId)),
   saveAppCompareReport: (comparisonId = 'cmp-001'): Promise<AppActionResultResponse> =>
     wait({ status: 'SAVED', title: '리포트가 저장되었어요!', message: '마이 리포트에서 언제든 다시 확인할 수 있어요.', nextPath: '/profile', data: { comparisonId } }),

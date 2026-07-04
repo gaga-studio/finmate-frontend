@@ -8,6 +8,7 @@ import './detailedProfile.css'
 
 /** 안정→공격 순 틸 램프. 브랜드 규칙상 다색 대신 틸 단일톤 시퀀스만 사용한다(DESIGN.md 데이터비즈). */
 const TEAL_RAMP = ['var(--teal-900)', 'var(--teal-700)', 'var(--teal-600)', 'var(--teal)', 'var(--teal-400)', 'var(--teal-200)', 'var(--teal-100)', 'var(--teal-50)']
+const PROFILE_AVATAR_SRC = `${import.meta.env.BASE_URL}assets/characters/finmate-growth.png`
 
 /**
  * FinMate 상세 개인 프로필 — 익명 기반 "내 금융 스냅샷 + 개인 분석" 화면.
@@ -41,6 +42,7 @@ export function DetailedProfilePage({ navigate }: { navigate: Navigate }) {
       <SummaryBadges onSelect={(key) => scrollTo(key === 'income' ? incomeRef : key === 'assets' ? assetsRef : spendingRef)} />
 
       <section className="screen-stack">
+        <MonthlyReportSection />
         <div ref={missionRef}>
           <MissionsSection />
         </div>
@@ -54,7 +56,6 @@ export function DetailedProfilePage({ navigate }: { navigate: Navigate }) {
           <SpendingSection onStartMission={() => scrollTo(missionRef)} />
         </div>
         <IncomeSavingsSection />
-        <MonthlyReportSection />
         <InsuranceSection />
       </section>
     </div>
@@ -66,7 +67,7 @@ function ProfileHero() {
   return (
     <section className="pd-hero">
       <div className="pd-avatar-wrap">
-        <img className="pd-avatar" src="/assets/characters/finmate-growth.png" alt="" aria-hidden="true" />
+        <img className="pd-avatar" src={PROFILE_AVATAR_SRC} alt="" aria-hidden="true" />
         <span className="pd-avatar-badge">{header.gradeBadge}</span>
       </div>
       <strong className="pd-nickname">{header.nickname}</strong>

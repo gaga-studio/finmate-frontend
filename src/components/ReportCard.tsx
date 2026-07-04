@@ -5,7 +5,7 @@ export type ReportKind = 'my-group' | 'other-group' | 'follow-group'
 const kindBadge: Record<ReportKind, { label: string; tone: 'teal' | 'muted' | 'red' }> = {
   'my-group': { label: '내 그룹', tone: 'teal' },
   'other-group': { label: '다른 그룹', tone: 'muted' },
-  'follow-group': { label: '팔로우 그룹', tone: 'red' },
+  'follow-group': { label: '친구 그룹', tone: 'red' },
 }
 
 export type ReportStageFour =

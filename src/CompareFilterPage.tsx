@@ -221,7 +221,7 @@ export function CompareFilterPage({ navigate, embedded = false }: { navigate: Na
         {profiles.length > 0 ? (
           <div className="compare-profile-list">
             {profiles.map((item) => (
-              <CompareProfileCard item={item} key={item.id} />
+              <CompareProfileCard item={item} navigate={navigate} key={item.id} />
             ))}
           </div>
         ) : (
@@ -292,8 +292,14 @@ function FilterBottomSheet({
   )
 }
 
-function CompareProfileCard({ item }: { item: AppItem }) {
-  return <ProfileCard scope="anonymous" facts={profileFactsFromItem(item)} />
+function CompareProfileCard({ item, navigate }: { item: AppItem; navigate: Navigate }) {
+  return (
+    <ProfileCard
+      scope="anonymous"
+      facts={profileFactsFromItem(item)}
+      onClick={item.detailPath ? () => navigate(item.detailPath ?? '/compare') : undefined}
+    />
+  )
 }
 
 function filtersFromMeta(screen: AppScreenResponse): AppCompareSearchRequest {

@@ -52,7 +52,7 @@ export function ProfileSegmentedControl({ section, navigate }: ProfileSectionPro
 
 export function ProfileRelationshipSummary({ section, navigate }: ProfileSectionProps) {
   const followerMetric = section.metrics?.find((metric) => metric.label.includes('팔로워'))
-  const followingMetric = section.metrics?.find((metric) => metric.label.includes('팔로잉')) ?? section.metrics?.[0]
+  const followingMetric = section.metrics?.find((metric) => metric.label.includes('친구') || metric.label.includes('팔로잉')) ?? section.metrics?.[0]
 
   return (
     <article className="profile-component profile-relationship-card profile-trust-card">
@@ -262,7 +262,7 @@ function ProfileSectionHeader({ section, navigate }: ProfileSectionProps) {
 
 function profileSectionEyebrow(section: AppSection): string {
   if (section.kind === 'relationshipList') {
-    return stringFromData(section.data, 'relation') === 'followers' ? '팔로워 목록' : '팔로잉 목록'
+    return stringFromData(section.data, 'relation') === 'followers' ? '팔로워 목록' : '친구 목록'
   }
   if (section.id === 'following-top') {
     return 'TOP 5 활동'
@@ -463,5 +463,5 @@ function clampPercent(value: number): number {
 }
 
 function cleanCopy(value: string): string {
-  return cleanProductCopy(value)
+  return cleanProductCopy(value).replaceAll('팔로잉', '친구')
 }

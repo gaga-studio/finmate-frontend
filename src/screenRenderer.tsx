@@ -3,7 +3,7 @@ import { api } from './api'
 import { clearSession, getSession, saveSession } from './session'
 import { cleanProductCopy } from './productCopy'
 import { describeError } from './errors'
-import type { AppAction, AppCompareSearchRequest, AppItem, AppMetric, AppScreenResponse, AppSection } from './types'
+import type { AppAction, AppItem, AppMetric, AppScreenResponse, AppSection } from './types'
 import type { Navigate } from './navigation'
 import {
   Chevron,
@@ -104,6 +104,8 @@ export function ScreenRenderer({ screen, navigate }: { screen: AppScreenResponse
     return <PrivacyTrustCenterScreen screen={screen} navigate={navigate} />
   }
 
+  const { beforeOverview, afterOverview } = monthlyRecordsSections(screen, sections)
+
   return (
     <div className={`screen screen-${screen.tab} ${screenClass(screen.screenId)}`}>
       <StatusBar time={screen.statusBarTime} />
@@ -120,8 +122,11 @@ export function ScreenRenderer({ screen, navigate }: { screen: AppScreenResponse
       </header>
 
       <section className="screen-stack">
+        {beforeOverview.map((section) => (
+          <SectionRenderer section={section} navigate={navigate} screen={screen} key={section.id} />
+        ))}
         {isMonthlyRecordsScreen(screen) ? <RecordsOverviewPanel screen={screen} navigate={navigate} /> : null}
-        {sections.map((section) => (
+        {afterOverview.map((section) => (
           <SectionRenderer section={section} navigate={navigate} screen={screen} key={section.id} />
         ))}
       </section>
@@ -141,6 +146,22 @@ function profileTrustFirstSections(screen: AppScreenResponse) {
     trustSection,
     ...screen.sections.filter((section) => section !== trustSection),
   ]
+}
+
+function monthlyRecordsSections(screen: AppScreenResponse, sections: AppSection[]) {
+  if (!isMonthlyRecordsScreen(screen)) {
+    return { beforeOverview: sections, afterOverview: [] as AppSection[] }
+  }
+
+  const pointSectionIndex = sections.findIndex((section) => section.id === 'point-ledger')
+  if (pointSectionIndex === -1) {
+    return { beforeOverview: sections, afterOverview: [] as AppSection[] }
+  }
+
+  return {
+    beforeOverview: sections.slice(0, pointSectionIndex + 1),
+    afterOverview: sections.slice(pointSectionIndex + 1),
+  }
 }
 
 function HomeScreen({ screen, navigate }: { screen: AppScreenResponse; navigate: Navigate }) {
@@ -363,15 +384,67 @@ function CompareMainScreen({ screen, navigate }: { screen: AppScreenResponse; na
 function CompareFriendsPanel({ navigate }: { navigate: Navigate }) {
   const loadFriends = useCallback(() => api.getAppProfileSection('following'), [])
   const state = useInlineScreen('profile-following', loadFriends)
+  const [friendReportUnlocked, setFriendReportUnlocked] = useState(() => readFriendReportUnlocked())
+  const [notice, setNotice] = useState<string | null>(null)
+  const pointCost = 20
 
   if (state.status !== 'ready') {
     return <InlineTabState state={state} loadingTitle="친구 공개 활동을 불러오는 중이에요" />
   }
 
   const relationshipList = state.screen.sections.find((section) => section.kind === 'relationshipList')
+  const unlockFriendReport = () => {
+    const session = getSession()
+    const balance = session.user?.pointBalance ?? 0
+
+    if (friendReportUnlocked) {
+      return
+    }
+    if (!session.user) {
+      setNotice('로그인 정보를 확인한 뒤 다시 시도해주세요.')
+      return
+    }
+    if (balance < pointCost) {
+      setNotice(`${pointCost}포인트가 필요해요. 미션으로 포인트를 먼저 모아주세요.`)
+      return
+    }
+
+    saveSession({ user: { ...session.user, pointBalance: balance - pointCost } })
+    writeFriendReportUnlocked(true)
+    setFriendReportUnlocked(true)
+    setNotice(null)
+  }
+
+  const relockFriendReport = () => {
+    writeFriendReportUnlocked(false)
+    setFriendReportUnlocked(false)
+    setNotice(null)
+  }
 
   return (
     <div className="inline-tab-panel compare-friends-panel">
+      <AppSectionCard className="compare-friend-report-panel compare-section-card">
+        <SectionHeading
+          eyebrow="친구 리포트"
+          title="친구 금융 리포트"
+          subtitle="20포인트를 쓰면 친구들의 공개 금융 행동 비율만 요약해서 보여줘요."
+        />
+        <ReportCard
+          kind="follow-group"
+          title="친구 금융 리포트"
+          locked={!friendReportUnlocked}
+          pointCost={pointCost}
+          onUnlock={unlockFriendReport}
+          stages={friendReportUnlocked ? friendReportStages(navigate) : undefined}
+        />
+        {friendReportUnlocked ? (
+          <button className="app-button secondary compare-friend-report-relock" type="button" onClick={relockFriendReport}>
+            다시 잠그기
+          </button>
+        ) : null}
+        {!friendReportUnlocked ? <p className="compare-friend-report-note">정확한 금액은 숨기고, 친구 중 몇 %가 어떤 금융 행동을 하고 있는지만 보여줘요.</p> : null}
+        {notice ? <p className="inline-notice compare-friend-report-notice" role="alert">{notice}</p> : null}
+      </AppSectionCard>
       {relationshipList ? <ProfileRelationshipList section={relationshipList} navigate={navigate} /> : <EmptyInlineTab title="공개 친구 활동이 아직 없어요" />}
     </div>
   )
@@ -388,9 +461,10 @@ function CompareFlowHeader({ title, onBack }: { title: string; onBack: () => voi
 }
 
 function CompareGroupPreviewScreen({ screen, navigate }: { screen: AppScreenResponse; navigate: Navigate }) {
-  const hero = screen.sections.find((section) => section.kind === 'compareGroupPreviewHero')
-  const features = screen.sections.find((section) => section.kind === 'compareGroupPreviewFeatures')
-  const filters = compareFiltersFromData(recordFromData(screen.meta, 'filters'))
+  const pointCost = numberFromData(screen.meta, 'pointCost') ?? 20
+  const previewLabel = stringFromData(screen.meta, 'previewLabel') ?? 'AI 추천 그룹'
+  const resultPath = stringFromData(screen.meta, 'resultPath') ?? '/compare/results/cmp-001'
+  const pointBalance = getSession().user?.pointBalance ?? 0
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -402,25 +476,23 @@ function CompareGroupPreviewScreen({ screen, navigate }: { screen: AppScreenResp
     navigate('/compare')
   }
 
-  const createGroup = async () => {
-    if (!filters) {
-      setNotice('그룹 조건을 불러오지 못했어요. 비교 탭에서 다시 선택해주세요.')
+  const openReport = () => {
+    const session = getSession()
+    const balance = session.user?.pointBalance ?? 0
+
+    if (!session.user) {
+      setNotice('로그인 정보를 확인한 뒤 다시 시도해주세요.')
       return
     }
+    if (balance < pointCost) {
+      setNotice(`${pointCost}포인트가 필요해요. 미션으로 포인트를 먼저 모아주세요.`)
+      return
+    }
+
     setBusy(true)
     setNotice(null)
-    try {
-      const result = await api.createAppCompareGroup(filters)
-      if (result.nextPath) {
-        navigate(result.nextPath)
-        return
-      }
-      setNotice(result.message)
-    } catch {
-      setNotice('리포트를 만들지 못했어요. 잠시 후 다시 시도해주세요.')
-    } finally {
-      setBusy(false)
-    }
+    saveSession({ user: { ...session.user, pointBalance: balance - pointCost } })
+    navigate(resultPath)
   }
 
   return (
@@ -428,27 +500,60 @@ function CompareGroupPreviewScreen({ screen, navigate }: { screen: AppScreenResp
       <StatusBar time={screen.statusBarTime} />
       <CompareFlowHeader title="그룹 미리보기" onBack={goBack} />
       <section className="compare-flow-body compare-preview-body">
-        {hero ? <CompareFlowIdentity section={hero} /> : null}
+        <section className="compare-flow-identity">
+          <IconBadge icon="spark" tone="teal" />
+          <div>
+            <h2>{previewLabel} 리포트</h2>
+            <p>{pointCost}포인트를 사용하면 실제 그룹 특징과 비교 리포트가 공개돼요.</p>
+          </div>
+        </section>
         <section className="compare-preview-feature-card">
-          <h2>{features?.title ?? '이 그룹의 핵심 특징'}</h2>
-          <p>리포트를 보기 전에 비교 기준이 나와 맞는지 먼저 확인해요.</p>
+          <h2>열람 후 확인되는 정보</h2>
+          <p>AI 추천 그룹은 보기 전까지 실제 조건이 숨겨져 있고, 포인트를 사용한 뒤 공개돼요.</p>
           <div className="compare-preview-feature-list">
-            {(features?.items ?? []).map((item) => (
+            {[
+              { id: 'preview-age', title: '대표 연령대', subtitle: '추천 그룹의 실제 연령대 조건이 공개돼요.', icon: 'profile' },
+              { id: 'preview-job', title: '대표 직군', subtitle: '어떤 직군 중심 그룹인지 리포트에서 확인할 수 있어요.', icon: 'study' },
+              { id: 'preview-area', title: '주 생활권', subtitle: '서울/경기 등 주요 생활권과 소비 특성이 함께 열려요.', icon: 'home' },
+              { id: 'preview-pattern', title: '소비 · 저축 패턴', subtitle: '평균 저축액과 소비 분포까지 바로 비교할 수 있어요.', icon: 'chart' },
+            ].map((item) => (
               <div className="compare-preview-feature-row" key={item.id}>
-                <IconBadge icon={item.icon ?? 'check'} tone="teal" />
+                <IconBadge icon={item.icon} tone="teal" />
                 <div>
                   <strong>{item.title}</strong>
-                  {item.subtitle ? <span>{item.subtitle}</span> : null}
+                  <span>{item.subtitle}</span>
                 </div>
               </div>
             ))}
           </div>
         </section>
+        <section className="compare-report-section compare-preview-point-card">
+          <h2>포인트 사용 안내</h2>
+          <div className="compare-preview-point-grid">
+            <div className="compare-report-metric-card">
+              <span>현재 보유 포인트</span>
+              <strong>{pointBalance.toLocaleString('ko-KR')}P</strong>
+            </div>
+            <div className="compare-report-metric-card">
+              <span>열람 차감 포인트</span>
+              <strong>{pointCost.toLocaleString('ko-KR')}P</strong>
+            </div>
+            <div className="compare-report-metric-card">
+              <span>열람 후 이동</span>
+              <strong>그룹 리포트</strong>
+            </div>
+            <div className="compare-report-metric-card">
+              <span>리포트 공개 범위</span>
+              <strong>연령대 · 직군 · 생활권</strong>
+            </div>
+          </div>
+          <p>포인트를 사용하면 추천 그룹의 실제 특징이 공개되고, 바로 나와 비교할 수 있어요.</p>
+        </section>
       </section>
       <div className="compare-flow-bottom-cta">
         {notice ? <p className="inline-notice compare-flow-notice" role="alert">{notice}</p> : null}
-        <button className="app-button primary compare-flow-primary" type="button" disabled={busy} onClick={() => { void createGroup() }}>
-          {busy ? '리포트 만드는 중' : '이 그룹 리포트 보기'}
+        <button className="app-button primary compare-flow-primary" type="button" disabled={busy} onClick={openReport}>
+          {busy ? '리포트 여는 중' : `${pointCost}포인트 쓰고 리포트 보기`}
         </button>
       </div>
       <BottomNav active="compare" navigate={navigate} />
@@ -484,7 +589,7 @@ function CompareReferenceReportScreen({ screen, navigate }: { screen: AppScreenR
         </section>
         {metrics ? <CompareReportMetricGrid section={metrics} /> : null}
         {distribution ? <CompareReportDistribution section={distribution} /> : null}
-        {members ? <CompareGroupMembersSection section={members} /> : null}
+        {members ? <CompareGroupMembersSection section={members} navigate={navigate} /> : null}
       </section>
       <div className="compare-report-sticky-cta">
         <button className="app-button primary compare-flow-primary" type="button" onClick={() => navigate(`/compare/results/${comparisonId}/me`)}>
@@ -908,24 +1013,31 @@ function MissionPointsPanel({
 }
 
 function MissionAvailablePanel({ fallbackSection, navigate }: { fallbackSection?: AppSection; navigate: Navigate }) {
-  const loadMissionAdd = useCallback(() => api.getAppMissionAdd(), [])
-  const state = useInlineScreen('mission-add', loadMissionAdd)
+  const loadNextGoals = useCallback(() => api.getAppMission('next-goals'), [])
+  const state = useInlineScreen('mission-next-goals', loadNextGoals)
 
   if (state.status !== 'ready') {
     if (state.status === 'error' && fallbackSection) {
       return (
         <div className="inline-tab-panel mission-available-panel">
-          <ListSection section={fallbackSection} navigate={navigate} />
+          <ListSection
+            section={{
+              ...fallbackSection,
+              title: '추천 다음 목표',
+              subtitle: '완료한 미션 다음에 이어서 하기 좋은 목표를 골랐어요.',
+            }}
+            navigate={navigate}
+          />
         </div>
       )
     }
-    return <InlineTabState state={state} loadingTitle="참여 가능한 미션을 불러오는 중이에요" />
+    return <InlineTabState state={state} loadingTitle="다음 목표 제안을 불러오는 중이에요" />
   }
 
   return (
     <div className="inline-tab-panel mission-available-panel">
       {state.screen.sections.map((section) => (
-        <ListSection section={section} navigate={navigate} key={section.id} />
+        <SectionRenderer section={section} navigate={navigate} screen={state.screen} key={section.id} />
       ))}
     </div>
   )
@@ -1175,7 +1287,7 @@ function SectionRenderer({ section, navigate, screen }: { section: AppSection; n
     return <CompareProfileListSection section={section} navigate={navigate} />
   }
   if (section.kind === 'compareGroupMembers') {
-    return <CompareGroupMembersSection section={section} />
+    return <CompareGroupMembersSection section={section} navigate={navigate} />
   }
   if (section.kind === 'profileSegmented') {
     return <ProfileSegmentedControl section={section} navigate={navigate} />
@@ -1477,19 +1589,30 @@ function BirthdayEventSection({ section, navigate, screen }: { section: AppSecti
   const goal = numberFromData(section.data, 'goalAmount')
   const participants = numberFromData(section.data, 'participants')
   const totalFriends = numberFromData(section.data, 'totalFriends')
+  const wishlistTitle = stringFromData(section.data, 'wishlistTitle')
+  const wishlistSummary = stringFromData(section.data, 'wishlistSummary')
+  const featuredOptionId = stringFromData(section.data, 'featuredOptionId')
+  const wishlistOptions = birthdayWishlistOptionsFromData(section.data)
 
   return (
     <AppSectionCard className={`birthday-event-panel section-${section.id}`}>
       <SectionHeading
-        eyebrow={isComplete ? '참여 완료' : '금융 이벤트'}
+        eyebrow={isComplete ? '참여 완료' : '생일 위시리스트'}
         title={section.title}
-        subtitle={section.subtitle ?? '친구 기반으로 돈이 모이는 경험을 가볍게 확인합니다.'}
+        subtitle={section.subtitle ?? '친구가 직접 위시리스트를 살 수 있도록 함께 보태는 화면입니다.'}
         onAction={section.detailPath ? () => navigate(section.detailPath ?? '/birthdays') : undefined}
       />
       {typeof collected === 'number' ? (
         <BigNumber value={collected} unit="원" size="l" caption={goal ? `목표 ${goal.toLocaleString('ko-KR')}원` : null} />
       ) : null}
-      <p className="birthday-privacy-note">참여자별 금액은 공개하지 않아요 — 참여 여부와 메시지 중심으로만 보여요.</p>
+      {wishlistTitle || wishlistSummary ? (
+        <div className="birthday-wishlist-summary">
+          <strong>{wishlistTitle ?? '이번 생일 위시리스트'}</strong>
+          <span>{wishlistSummary ?? '선물 대신 금액을 보태면 친구가 원하는 걸 직접 고를 수 있어요.'}</span>
+        </div>
+      ) : null}
+      {wishlistOptions.length ? <BirthdayWishlistPreview options={wishlistOptions} featuredOptionId={featuredOptionId} /> : null}
+      <p className="birthday-privacy-note">참여자별 금액은 공개하지 않고, 어떤 마음이 모였는지와 참여 여부 중심으로 보여요.</p>
       {typeof participants === 'number' && typeof totalFriends === 'number' ? (
         <ParticipationBar label="친구 참여" participants={participants} total={totalFriends} showAvatars />
       ) : null}
@@ -1505,20 +1628,20 @@ function BirthdayCompleteSection({ section, navigate }: SectionProps) {
       <SectionHeading eyebrow="참여 완료" title={section.title} subtitle={section.subtitle ?? '축하 흐름이 완료됐습니다.'} />
       <div className="birthday-receipt-list">
         <div>
-          <span>친구에게 보이는 방식</span>
-          <strong>참여 여부와 메시지 중심</strong>
+          <span>참여 방식</span>
+          <strong>선물 대신 금액 보태기</strong>
         </div>
         <div>
-          <span>숨기는 정보</span>
-          <strong>개인별 참여 금액</strong>
+          <span>친구에게 보이는 정보</span>
+          <strong>참여 여부와 축하 메시지 중심</strong>
         </div>
         <div>
           <span>다음 행동</span>
-          <strong>내 비상금 미션으로 이어가기</strong>
+          <strong>다른 친구 생일 위시리스트도 살펴보기</strong>
         </div>
       </div>
       <ActionPanel className="birthday-complete-actions">
-        <button className="app-button primary" type="button" onClick={() => navigate('/missions')}>비상금 미션 보기</button>
+        <button className="app-button primary" type="button" onClick={() => navigate('/birthdays')}>다른 위시리스트 보기</button>
         <button className="app-button secondary" type="button" onClick={() => navigate('/birthdays')}>이벤트로 돌아가기</button>
       </ActionPanel>
     </AppSectionCard>
@@ -1545,6 +1668,34 @@ function BirthdayParticipantRows({ items }: { items: AppItem[] }) {
             <span>{item.subtitle ? cleanCaption(item.subtitle) : '축하 메시지 있음'}</span>
           </div>
           <em>참여 완료</em>
+        </article>
+      ))}
+    </div>
+  )
+}
+
+type BirthdayWishlistPreviewItem = {
+  id: string
+  title: string
+  amountLabel: string
+  emoji: string
+  caption: string
+}
+
+function BirthdayWishlistPreview({
+  options,
+  featuredOptionId,
+}: {
+  options: BirthdayWishlistPreviewItem[]
+  featuredOptionId: string | null
+}) {
+  return (
+    <div className="birthday-option-grid birthday-option-grid-preview" role="list" aria-label="생일 위시리스트 참여 예시">
+      {options.map((option) => (
+        <article className={`birthday-option-tile ${option.id === featuredOptionId ? 'is-selected' : ''}`} role="listitem" key={option.id}>
+          <span className="birthday-option-emoji" aria-hidden="true">{option.emoji}</span>
+          <strong>{option.title}</strong>
+          <em>{option.amountLabel}</em>
         </article>
       ))}
     </div>
@@ -1925,6 +2076,44 @@ function reportStagesFor(kind: ReportKind, navigate: Navigate): ReportStages {
   }
 }
 
+const FRIEND_REPORT_UNLOCK_KEY = 'finmate:compare-friend-report-unlocked'
+
+function friendReportStages(navigate: Navigate): ReportStages {
+  return {
+    summary: '친구 금융 리포트는 정확한 금액 없이, 공개한 행동 비율만 모아서 보여줘요.',
+    traits: ['친구 10명 중 8명이 청약이나 적금을 유지하고 있어요.', '친구 공개 루틴의 62%는 비상금 준비와 연결돼 있어요.'],
+    behaviors: ['청약 저축 유지', '비상금 통장 만들기', 'ETF 소액 투자 시작'],
+    stageFour: {
+      kind: 'ratio',
+      rows: [
+        { label: '청약·적금 유지 비율', value: '80%' },
+        { label: '비상금 준비 비율', value: '62%' },
+        { label: '투자 경험 공개 비율', value: '41%' },
+      ],
+    },
+    gapWithMe: '너는 친구 공개 루틴 안에서 저축 실천 비율 상위 35%에 들어가 있어요.',
+    nextAction: {
+      label: '친구 10명 중 6명이 이어가는 비상금 루틴을 이번 주 미션으로 시작해보세요.',
+      ctaLabel: '관련 미션 보기',
+      onCta: () => navigate('/missions'),
+    },
+  }
+}
+
+function readFriendReportUnlocked() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+  return window.localStorage.getItem(FRIEND_REPORT_UNLOCK_KEY) === 'true'
+}
+
+function writeFriendReportUnlocked(unlocked: boolean) {
+  if (typeof window === 'undefined') {
+    return
+  }
+  window.localStorage.setItem(FRIEND_REPORT_UNLOCK_KEY, unlocked ? 'true' : 'false')
+}
+
 function CalendarSection({ section, navigate }: SectionProps) {
   const calendarItems = (section.items ?? []).filter((item) => Number.isInteger(Number(item.title)))
   const itemByDay = new Map(calendarItems.map((item) => [Number(item.title), item]))
@@ -2089,7 +2278,7 @@ function CompareGroupRailSection({ section, navigate }: SectionProps) {
         {section.items?.map((item) => (
           <RecommendationRow
             item={item}
-            actionLabel="미리보기"
+            actionLabel={`${numberFromData(item.data, 'pointCost') ?? 20}P 보기`}
             onClick={() => navigate(item.detailPath ?? `/compare/groups/${item.id}/preview`)}
             key={item.id}
           />
@@ -2134,7 +2323,7 @@ function CompareProfileListSection({ section, navigate }: SectionProps) {
   )
 }
 
-function CompareGroupMembersSection({ section }: { section: AppSection }) {
+function CompareGroupMembersSection({ section, navigate }: { section: AppSection; navigate: Navigate }) {
   const items = section.items ?? []
   const pageSize = evenCompareMemberCount(numberFromData(section.data, 'pageSize') ?? 6)
   const initialVisible = evenCompareMemberCount(numberFromData(section.data, 'initialVisible') ?? pageSize)
@@ -2150,7 +2339,7 @@ function CompareGroupMembersSection({ section }: { section: AppSection }) {
       </div>
       <div className="compare-member-grid" aria-label="비교 그룹 사용자">
         {visibleItems.map((item) => (
-          <CompareMemberCard item={item} key={item.id} />
+          <CompareMemberCard item={item} navigate={navigate} key={item.id} />
         ))}
       </div>
       {hasMore ? (
@@ -2166,9 +2355,15 @@ function CompareGroupMembersSection({ section }: { section: AppSection }) {
   )
 }
 
-function CompareMemberCard({ item }: { item: AppItem }) {
+function CompareMemberCard({ item, navigate }: { item: AppItem; navigate: Navigate }) {
   // 그룹 구성원도 익명 개인 단위이므로 UI.md 6장 `anonymous` scope를 그대로 적용한다.
-  return <ProfileCard scope="anonymous" facts={profileFactsFromItem(item)} />
+  return (
+    <ProfileCard
+      scope="anonymous"
+      facts={profileFactsFromItem(item)}
+      onClick={item.detailPath ? () => navigate(item.detailPath ?? '/compare') : undefined}
+    />
+  )
 }
 
 function ListSection({ section, navigate }: SectionProps) {
@@ -2280,32 +2475,6 @@ function templateIdFromItem(item: AppItem): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
-function compareFiltersFromData(data: Record<string, unknown> | null | undefined): AppCompareSearchRequest | null {
-  if (!data) {
-    return null
-  }
-  const hasCompareFilter =
-    'ageBand' in data ||
-    'incomeBand' in data ||
-    'jobCategory' in data ||
-    'moneyStyle' in data ||
-    'area' in data ||
-    'householdType' in data ||
-    'assetRange' in data
-  if (!hasCompareFilter) {
-    return null
-  }
-  return {
-    ageBand: stringFromData(data, 'ageBand') ?? '전체',
-    incomeBand: stringFromData(data, 'incomeBand') ?? '전체',
-    jobCategory: stringFromData(data, 'jobCategory') ?? '전체',
-    moneyStyle: stringFromData(data, 'moneyStyle') ?? '전체',
-    area: stringFromData(data, 'area') ?? '전체',
-    householdType: stringFromData(data, 'householdType') ?? '전체',
-    assetRange: stringFromData(data, 'assetRange') ?? '전체',
-  }
-}
-
 function evenCompareMemberCount(count: number) {
   const safeCount = Math.max(2, Math.round(count))
   return safeCount % 2 === 0 ? safeCount : safeCount + 1
@@ -2415,9 +2584,30 @@ function stringFromData(data: Record<string, unknown> | null | undefined, key: s
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
-function recordFromData(data: Record<string, unknown> | null | undefined, key: string): Record<string, unknown> | null {
-  const value = data?.[key]
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
+function birthdayWishlistOptionsFromData(data: Record<string, unknown> | null | undefined): BirthdayWishlistPreviewItem[] {
+  const value = data?.wishlistOptions
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') {
+      return []
+    }
+
+    const record = item as Record<string, unknown>
+    const id = typeof record.id === 'string' ? record.id : null
+    const title = typeof record.title === 'string' ? record.title : null
+    const amountLabel = typeof record.amountLabel === 'string' ? record.amountLabel : null
+    const emoji = typeof record.emoji === 'string' ? record.emoji : null
+    const caption = typeof record.caption === 'string' ? record.caption : ''
+
+    if (!id || !title || !amountLabel || !emoji) {
+      return []
+    }
+
+    return [{ id, title, amountLabel, emoji, caption }]
+  })
 }
 
 function parseMoney(value: string | null | undefined) {

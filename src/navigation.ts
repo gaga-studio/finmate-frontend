@@ -12,6 +12,12 @@ export type ScreenKey =
   | 'compare-result'
   | 'compare-personal-flow'
   | 'compare-coach'
+  | 'compare-member-detail'
+  | 'compare-member-start'
+  | 'compare-member-categories'
+  | 'compare-member-category-result'
+  | 'compare-member-versus'
+  | 'compare-member-simulation'
   | 'missions'
   | 'mission-add'
   | 'mission-detail'
@@ -57,6 +63,24 @@ export function parseRoute(pathname: string): Route {
       : { name: 'screen', screen: 'home' }
   }
   if (parts[0] === 'compare') {
+    if (parts[1] === 'members' && parts[2] && parts[3] === 'versus') {
+      return { name: 'screen', screen: 'compare-member-versus', param: parts[2] }
+    }
+    if (parts[1] === 'members' && parts[2] && parts[3] === 'simulation') {
+      return { name: 'screen', screen: 'compare-member-simulation', param: parts[2] }
+    }
+    if (parts[1] === 'members' && parts[2] && parts[3] === 'start') {
+      return { name: 'screen', screen: 'compare-member-start', param: parts[2] }
+    }
+    if (parts[1] === 'members' && parts[2] && parts[3] === 'categories' && parts[4]) {
+      return { name: 'screen', screen: 'compare-member-category-result', param: `${parts[2]}:${parts[4]}` }
+    }
+    if (parts[1] === 'members' && parts[2] && parts[3] === 'categories') {
+      return { name: 'screen', screen: 'compare-member-categories', param: parts[2] }
+    }
+    if (parts[1] === 'members' && parts[2]) {
+      return { name: 'screen', screen: 'compare-member-detail', param: parts[2] }
+    }
     if (parts[1] === 'groups' && parts[2] && parts[3] === 'preview') {
       return { name: 'screen', screen: 'compare-group-preview', param: parts[2] }
     }

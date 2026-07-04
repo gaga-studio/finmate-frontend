@@ -56,6 +56,15 @@
   --fomo: var(--red);
   --focus-ring: rgba(0, 149, 145, 0.32);
 
+  /* ── Compare distribution chart (teal sequential + red gap) ── */
+  --color-accent: var(--red);
+  --color-border: var(--line);
+  --color-border-strong: #CBD8D3;
+  --color-chart-1: var(--teal);
+  --color-chart-2: var(--teal-200);
+  --color-chart-3: var(--teal-100);
+  --color-chart-muted: #D7DEDB;
+
   /* ── Radius ────────────────────────────────────────── */
   --r-sm: 10px;
   --r-md: 16px;

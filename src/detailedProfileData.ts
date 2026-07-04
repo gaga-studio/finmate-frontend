@@ -45,7 +45,7 @@ export type SavingsTrendPoint = {
 
 export const detailedProfile = {
   header: {
-    nickname: '가상청년 P072',
+    nickname: '연애하는백만장자',
     gradeBadge: '독립 준비 중',
     ageBand: '25세',
     jobStatus: '영업관리 사원',

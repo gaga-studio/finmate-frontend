@@ -96,7 +96,7 @@ export function ProfileCard({
   )
 }
 
-function anonymousAvatarStyle(seed?: string | null): CSSProperties | undefined {
+export function anonymousAvatarStyle(seed?: string | null): CSSProperties | undefined {
   if (!seed) return undefined
   const hue = parseInt(seed.slice(0, 2), 16) % 360
   const hueOffset = (hue + 34) % 360
@@ -106,7 +106,7 @@ function anonymousAvatarStyle(seed?: string | null): CSSProperties | undefined {
   } as CSSProperties
 }
 
-function anonymousAvatarGlyph(seed: string): string {
+export function anonymousAvatarGlyph(seed: string): string {
   const glyphs = ['●', '◆', '✦', '◐', '✺', '◇', '◌', '✧']
   const index = parseInt(seed.slice(2, 4), 16) % glyphs.length
   return glyphs[index]

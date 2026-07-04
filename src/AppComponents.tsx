@@ -153,6 +153,8 @@ export function ActivityRow({
   const rowIcon = icon ?? item.icon ?? inferIcon(`${item.title} ${item.subtitle} ${item.caption}`)
   const rowTone = tone ?? item.tone ?? 'teal'
   const click = onClick ?? (item.detailPath && navigate ? () => navigate(item.detailPath ?? '/') : undefined)
+  const showTrailing = Boolean(item.value || item.caption || actionLabel)
+  const showChevron = Boolean(item.detailPath || actionLabel || onClick)
   const body = (
     <>
       {rank ? <span className="activity-rank">{rank}</span> : <IconBadge icon={rowIcon} tone={rowTone} />}
@@ -160,12 +162,16 @@ export function ActivityRow({
         <strong>{cleanCaption(item.title)}</strong>
         {item.subtitle ? <small>{cleanCaption(item.subtitle)}</small> : null}
       </div>
-      {(item.value || item.caption || actionLabel || item.detailPath) ? (
+      {showTrailing ? (
         <span className="activity-trailing">
           {item.value ? <b>{cleanCaption(item.value)}</b> : null}
           {item.caption ? <em>{cleanCaption(item.caption)}</em> : null}
           {actionLabel ? <i>{busy ? '처리 중' : actionLabel}</i> : null}
-          {item.detailPath || actionLabel ? <Chevron /> : null}
+        </span>
+      ) : null}
+      {showChevron ? (
+        <span className="activity-chevron" aria-hidden="true">
+          <Chevron />
         </span>
       ) : null}
     </>

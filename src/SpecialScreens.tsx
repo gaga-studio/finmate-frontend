@@ -1,16 +1,20 @@
 import { useState } from 'react'
 import { api } from './api'
+import { birthdayFundScenario, birthdayOptionPriceLabel, birthdayWishlistOptions, getBirthdayWishlistOption } from './birthdayFundData'
 import { describeError } from './errors'
 import type { Navigate } from './navigation'
 import { IconButton, StatusBar } from './uiPrimitives'
-import { AmountSelector, AppSectionCard, ConsentRow, ScreenLead, SectionHeading } from './AppComponents'
+import { AppSectionCard, ConsentRow, ScreenLead, SectionHeading } from './AppComponents'
 
 export function BirthdayContributionPage({ fundId, navigate }: { fundId: string; navigate: Navigate }) {
-  const [amount, setAmount] = useState(10000)
+  const defaultOption = getBirthdayWishlistOption(birthdayFundScenario.featuredOptionId)
+  const [selectedOptionId, setSelectedOptionId] = useState(defaultOption.id)
   const [message, setMessage] = useState('생일 축하해!')
   const [anonymous, setAnonymous] = useState(false)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const selectedOption = getBirthdayWishlistOption(selectedOptionId)
+  const amount = selectedOption.price
 
   const submit = async () => {
     setNotice(null)
@@ -34,22 +38,41 @@ export function BirthdayContributionPage({ fundId, navigate }: { fundId: string;
         <div className="header-side right"><IconButton icon="bell" label="알림" /></div>
       </header>
       <section className="screen-stack">
-        <ScreenLead eyebrow="생일 펀드" title="부담 없는 금액으로 참여해요" subtitle="친구에게 보일 메시지와 공개 방식을 확인한 뒤 다음 단계로 넘어갑니다." />
+        <ScreenLead eyebrow="생일 펀드" title={`${birthdayFundScenario.friendName}의 위시리스트에 금액을 보태요`} subtitle="선물 대신 원하는 금액 카드를 골라서 친구가 직접 위시리스트를 살 수 있게 도와주세요." />
         <AppSectionCard className="form-card birthday-contribution-panel">
-          <SectionHeading eyebrow="참여 금액" title="금액을 선택해주세요" subtitle="이번 단계에서는 결제 없이 참여 흐름만 확인합니다." />
+          <SectionHeading eyebrow="참여 금액" title="어떤 선물 대신 보탤지 골라주세요" subtitle="이번 단계에서는 결제 없이 참여 흐름만 확인합니다." />
           <div className="contribution-flow">
             <section className="contribution-step contribution-amount-step" aria-label="참여 금액 선택">
               <span className="contribution-step-index">1</span>
               <div>
-                <small>참여 금액</small>
-                <div className="amount-display">₩{amount.toLocaleString('ko-KR')}</div>
-                <AmountSelector values={[5000, 10000, 20000]} value={amount} disabled={busy} onChange={setAmount} />
+                <small>선물 대신 보탤 금액</small>
+                <div className="birthday-contribution-hero">
+                  <strong>{selectedOption.title}</strong>
+                  <span>{birthdayOptionPriceLabel(amount)}을 함께 보태요</span>
+                </div>
+                <div className="birthday-option-grid" role="list" aria-label="생일 위시리스트 참여 금액 선택">
+                  {birthdayWishlistOptions.map((option) => (
+                    <button
+                      className={`birthday-option-tile ${option.id === selectedOptionId ? 'is-selected' : ''}`}
+                      type="button"
+                      role="listitem"
+                      disabled={busy}
+                      onClick={() => setSelectedOptionId(option.id)}
+                      key={option.id}
+                    >
+                      <span className="birthday-option-emoji" aria-hidden="true">{option.emoji}</span>
+                      <strong>{option.title}</strong>
+                      <em>{birthdayOptionPriceLabel(option.price)}</em>
+                    </button>
+                  ))}
+                </div>
               </div>
             </section>
             <section className="contribution-step" aria-label="축하 메시지 입력">
               <span className="contribution-step-index">2</span>
               <div className="birthday-message-card">
                 <label className="field-label" htmlFor="birthday-message">축하 메시지</label>
+                <p className="birthday-helper-copy">{selectedOption.title} {birthdayOptionPriceLabel(amount)}을 보태며 남길 메시지예요.</p>
                 <textarea id="birthday-message" value={message} disabled={busy} onChange={(event) => setMessage(event.target.value)} />
               </div>
             </section>
@@ -66,9 +89,9 @@ export function BirthdayContributionPage({ fundId, navigate }: { fundId: string;
           </div>
           {notice ? <p className="inline-notice" role="alert">{notice}</p> : null}
           <div className="contribution-submit-row">
-            <span>결제 없이 참여 흐름만 확인해요</span>
+            <span>{birthdayFundScenario.friendName}가 위시리스트를 직접 살 수 있도록 금액을 보태는 흐름이에요</span>
             <button className="app-button primary" type="button" disabled={busy} onClick={() => { void submit() }}>
-              {busy ? '참여 중' : '다음'}
+              {busy ? '보태는 중' : `${birthdayOptionPriceLabel(amount)} 보태기`}
             </button>
           </div>
         </AppSectionCard>

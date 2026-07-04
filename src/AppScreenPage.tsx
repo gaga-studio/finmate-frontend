@@ -8,6 +8,13 @@ import { ErrorScreen, LoadingScreen, ScreenRenderer } from './screenRenderer'
 import { CompareFilterPage } from './CompareFilterPage'
 import { DetailedProfilePage } from './DetailedProfilePage'
 import { AssetCategoryDetailPage } from './AssetCategoryDetailPage'
+import { CompareMemberDetailPage } from './CompareMemberDetailPage'
+import { CompareOneOnOnePage } from './CompareOneOnOnePage'
+import { CompareOneOnOneSimulationPage } from './CompareOneOnOneSimulationPage'
+import { CompareStartPage } from './CompareStartPage'
+import { CompareCategoryPickerPage } from './CompareCategoryPickerPage'
+import { CompareCategoryResultPage } from './CompareCategoryResultPage'
+import type { OneOnOneCategoryId } from './compareCategory'
 
 type LoadState =
   | { status: 'loading' }
@@ -31,6 +38,31 @@ export function AppScreenPage({
   }
   if (route.screen === 'profile-detail-asset') {
     return <AssetCategoryDetailPage categoryId={route.param ?? 'checking'} navigate={navigate} />
+  }
+  if (route.screen === 'compare-member-detail') {
+    return <CompareMemberDetailPage memberId={route.param ?? ''} navigate={navigate} />
+  }
+  if (route.screen === 'compare-member-versus') {
+    return <CompareOneOnOnePage memberId={route.param ?? ''} navigate={navigate} />
+  }
+  if (route.screen === 'compare-member-simulation') {
+    return <CompareOneOnOneSimulationPage memberId={route.param ?? ''} navigate={navigate} />
+  }
+  if (route.screen === 'compare-member-start') {
+    return <CompareStartPage memberId={route.param ?? ''} navigate={navigate} />
+  }
+  if (route.screen === 'compare-member-categories') {
+    return <CompareCategoryPickerPage memberId={route.param ?? ''} navigate={navigate} />
+  }
+  if (route.screen === 'compare-member-category-result') {
+    const [memberId, categoryId] = (route.param ?? '').split(':')
+    return (
+      <CompareCategoryResultPage
+        memberId={memberId ?? ''}
+        categoryId={(categoryId as OneOnOneCategoryId) ?? 'spending'}
+        navigate={navigate}
+      />
+    )
   }
 
   return <LoadedAppScreen pathname={pathname} route={route} navigate={navigate} />
@@ -125,6 +157,24 @@ function loadScreen(route: Extract<Route, { name: 'screen' }>): Promise<AppScree
     case 'profile-detail-asset':
       // AppScreenPage intercepts this route above; never reached.
       return api.getAppProfile()
+    case 'compare-member-detail':
+      // AppScreenPage intercepts this route above; never reached.
+      return api.getAppProfile()
+    case 'compare-member-versus':
+      // AppScreenPage intercepts this route above; never reached.
+      return api.getAppProfile()
+    case 'compare-member-simulation':
+      // AppScreenPage intercepts this route above; never reached.
+      return api.getAppProfile()
+    case 'compare-member-start':
+      // AppScreenPage intercepts this route above; never reached.
+      return api.getAppProfile()
+    case 'compare-member-categories':
+      // AppScreenPage intercepts this route above; never reached.
+      return api.getAppProfile()
+    case 'compare-member-category-result':
+      // AppScreenPage intercepts this route above; never reached.
+      return api.getAppProfile()
     case 'birthdays':
       return api.getAppBirthdays()
     case 'birthday-flow':
@@ -138,6 +188,7 @@ function loadScreen(route: Extract<Route, { name: 'screen' }>): Promise<AppScree
     case 'birthday-status':
       return api.getMyBirthdayFundStatus()
   }
+  return api.getAppHome()
 }
 
 const defaultCompareFilters: AppCompareSearchRequest = {

@@ -154,6 +154,10 @@ const realApi = {
     request<AppScreenResponse>(`/api/app/compare/results/${comparisonId}`, {
       token,
     }),
+  getAppCompareMemberDetail: (memberId: string, token?: string) =>
+    request<AppScreenResponse>(`/api/app/compare/members/${memberId}`, {
+      token,
+    }),
   getAppComparePersonalFlow: (comparisonId = 'cmp-001', token?: string) =>
     request<AppScreenResponse>(`/api/app/compare/results/${comparisonId}/me`, {
       token,
