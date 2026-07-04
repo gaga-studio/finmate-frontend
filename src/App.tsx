@@ -37,7 +37,7 @@ function App() {
   })
   const route = useMemo(() => parseRoute(pathname), [pathname])
   const activeTab = getActiveTab(route)
-  const showBottomNav = route.name !== 'onboarding' && route.name !== 'birthday-contribution'
+  const showBottomNav = shouldShowBottomNav(route)
 
   useEffect(() => {
     const handleSessionChange = () => setSession(getSession())
@@ -130,3 +130,17 @@ function renderRoute(route: Route, pathname: string, navigate: Navigate, session
 }
 
 export default App
+
+function shouldShowBottomNav(route: Route) {
+  if (route.name === 'onboarding' || route.name === 'birthday-contribution') {
+    return false
+  }
+  if (route.name !== 'screen') {
+    return true
+  }
+  return ![
+    'compare-group-preview',
+    'compare-result',
+    'compare-personal-flow',
+  ].includes(route.screen)
+}

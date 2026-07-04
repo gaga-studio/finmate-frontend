@@ -146,8 +146,21 @@ const realApi = {
       token,
       body,
     }),
+  getAppCompareGroupPreview: (recommendationId: string, token?: string) =>
+    request<AppScreenResponse>(`/api/app/compare/groups/${recommendationId}/preview`, {
+      token,
+    }),
   getAppCompareResult: (comparisonId = 'cmp-001', token?: string) =>
     request<AppScreenResponse>(`/api/app/compare/results/${comparisonId}`, {
+      token,
+    }),
+  getAppComparePersonalFlow: (comparisonId = 'cmp-001', token?: string) =>
+    request<AppScreenResponse>(`/api/app/compare/results/${comparisonId}/me`, {
+      token,
+    }),
+  saveAppCompareReport: (comparisonId = 'cmp-001', token?: string) =>
+    request<AppActionResultResponse>(`/api/app/compare/results/${comparisonId}/save`, {
+      method: 'POST',
       token,
     }),
   getAppCoachFlow: (comparisonId = 'cmp-001', token?: string) =>

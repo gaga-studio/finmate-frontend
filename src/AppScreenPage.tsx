@@ -6,6 +6,8 @@ import type { AppCompareSearchRequest, AppScreenResponse } from './types'
 import { describeError, isUnauthorized } from './errors'
 import { ErrorScreen, LoadingScreen, ScreenRenderer } from './screenRenderer'
 import { CompareFilterPage } from './CompareFilterPage'
+import { DetailedProfilePage } from './DetailedProfilePage'
+import { AssetCategoryDetailPage } from './AssetCategoryDetailPage'
 
 type LoadState =
   | { status: 'loading' }
@@ -23,6 +25,12 @@ export function AppScreenPage({
 }) {
   if (route.screen === 'compare-filter') {
     return <CompareFilterPage navigate={navigate} />
+  }
+  if (route.screen === 'profile-detail') {
+    return <DetailedProfilePage navigate={navigate} />
+  }
+  if (route.screen === 'profile-detail-asset') {
+    return <AssetCategoryDetailPage categoryId={route.param ?? 'checking'} navigate={navigate} />
   }
 
   return <LoadedAppScreen pathname={pathname} route={route} navigate={navigate} />
@@ -89,8 +97,12 @@ function loadScreen(route: Extract<Route, { name: 'screen' }>): Promise<AppScree
       return api.getAppCompareFilter()
     case 'compare-results':
       return api.searchAppCompareFilter(defaultCompareFilters)
+    case 'compare-group-preview':
+      return api.getAppCompareGroupPreview(route.param ?? 'rec-1')
     case 'compare-result':
       return api.getAppCompareResult(route.param ?? 'cmp-001')
+    case 'compare-personal-flow':
+      return api.getAppComparePersonalFlow(route.param ?? 'cmp-001')
     case 'compare-coach':
       return api.getAppCoachFlow(route.param ?? 'cmp-001')
     case 'missions':
@@ -107,6 +119,12 @@ function loadScreen(route: Extract<Route, { name: 'screen' }>): Promise<AppScree
       return api.getAppProfile()
     case 'profile-section':
       return api.getAppProfileSection(route.param ?? 'followers')
+    case 'profile-detail':
+      // AppScreenPage intercepts this route above; never reached.
+      return api.getAppProfile()
+    case 'profile-detail-asset':
+      // AppScreenPage intercepts this route above; never reached.
+      return api.getAppProfile()
     case 'birthdays':
       return api.getAppBirthdays()
     case 'birthday-flow':
