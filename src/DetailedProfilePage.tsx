@@ -1,20 +1,179 @@
-import { useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { api } from './api'
+import { describeError } from './errors'
 import type { Navigate } from './navigation'
-import { AppSectionCard, SectionHeading } from './AppComponents'
-import { BigNumber, CoachBubble, MissionCard } from './components'
+import type { AppItem, AppMetric, AppScreenResponse, AppSection } from './types'
+import { AppSectionCard, EmptyState, SectionHeading } from './AppComponents'
+import { BigNumber, CoachBubble, MissionCard, type MissionStatus } from './components'
 import { IconBadge, IconButton, MiniLineChart, StatusBar } from './uiPrimitives'
-import { detailedProfile, type AssetCategory, type SavingsTrendPoint, type SpendingCategory } from './detailedProfileData'
+import { anonymousAvatarGlyph, anonymousAvatarStyle } from './anonymousAvatar'
 import './detailedProfile.css'
 
 /** 안정→공격 순 틸 램프. 브랜드 규칙상 다색 대신 틸 단일톤 시퀀스만 사용한다(DESIGN.md 데이터비즈). */
 const TEAL_RAMP = ['var(--teal-900)', 'var(--teal-700)', 'var(--teal-600)', 'var(--teal)', 'var(--teal-400)', 'var(--teal-200)', 'var(--teal-100)', 'var(--teal-50)']
 
+type LoadState =
+  | { status: 'loading' }
+  | { status: 'ready'; screen: AppScreenResponse }
+  | { status: 'error'; message: string }
+
+type AmountBadge = {
+  label: string
+  amountLabel: string
+  amountValue: number
+}
+
+type MissionSummary = {
+  id: string
+  title: string
+  rewardPoints: number
+  status: MissionStatus
+  progressLabel?: string | null
+  progressPercent?: number | null
+}
+
+type AssetCategory = {
+  id: string
+  label: string
+  sharePercent: number
+  amountLabel: string
+  note: string
+  isLiability?: boolean
+  detailPath?: string | null
+}
+
+type SpendingCategory = {
+  id: string
+  emoji: string
+  label: string
+  amountLabel: string
+  sharePercent: number
+  deltaLabel: string
+  deltaTone: 'up' | 'down' | 'flat'
+}
+
+type SavingsTrendPoint = {
+  label: string
+  ratePercent: number
+}
+
+type ProfileDetailModel = {
+  title: string
+  isSelf: boolean
+  header: {
+    nickname: string
+    gradeBadge: string
+    subinfo: string
+    followers: string
+    following: string
+    anonymousAvatarSeed?: string | null
+  }
+  summaryBadges: {
+    annualIncome: AmountBadge
+    totalAssets: AmountBadge
+    monthlySpending: AmountBadge
+  }
+  missions: MissionSummary[]
+  income: {
+    amountLabel: string
+    amountValue: number
+    caption?: string | null
+    insight: string
+    yearly: Array<{ year: number; amount: number; amountLabel: string }>
+  }
+  assets: {
+    totalLabel: string
+    totalValue: number
+    categories: AssetCategory[]
+    styleInsight: string
+  }
+  spending: {
+    totalLabel: string
+    totalValue: number
+    comparisonNote?: string | null
+    categories: SpendingCategory[]
+    insight: string
+    coachMessage?: string | null
+  }
+  incomeSavings: {
+    avgIncomeLabel: string
+    avgSpendingLabel: string
+    avgSavingsLabel: string
+    savingsRateLabel: string
+    insight: string
+    trend: SavingsTrendPoint[]
+  }
+  monthlyReport: {
+    insights: string[]
+    recommendedMissions: string[]
+  } | null
+  insurance: {
+    monthlyPremiumLabel: string
+    productCount: string
+  }
+}
+
 /**
- * FinMate 상세 개인 프로필 — 익명 기반 "내 금융 스냅샷 + 개인 분석" 화면.
- * 또래 비교·FOMO 요소는 넣지 않는다(비교는 '비교' 탭이 담당). navigation.ts의
- * profile-detail 라우트에서만 진입하는 독립 화면 — 기존 ProfileSections/screenRenderer와 분리.
+ * FinMate 상세 개인 프로필 — 기존 화면 구조는 유지하되 AppScreenResponse를 source of truth로 사용한다.
+ * 본인 화면은 미션/리포트를 포함하고, 타인 화면은 서버의 익명 닉네임과 만원 단위 표시값만 렌더한다.
  */
-export function DetailedProfilePage({ navigate }: { navigate: Navigate }) {
+export function DetailedProfilePage({ targetUserId, navigate }: { targetUserId?: string; navigate: Navigate }) {
+  const [state, setState] = useState<LoadState>({ status: 'loading' })
+
+  useEffect(() => {
+    let active = true
+    setState({ status: 'loading' })
+    api.getAppProfileDetail(targetUserId)
+      .then((screen) => {
+        if (active) setState({ status: 'ready', screen })
+      })
+      .catch((error: unknown) => {
+        if (active) setState({ status: 'error', message: describeError(error) })
+      })
+    return () => {
+      active = false
+    }
+  }, [targetUserId])
+
+  const goBack = () => {
+    if (window.history.length > 1) {
+      window.history.back()
+      return
+    }
+    navigate('/profile')
+  }
+
+  const title = state.status === 'ready' ? state.screen.title : '프로필'
+  const isSelf = state.status === 'ready' ? dataBool(state.screen.meta, 'isSelf', true) : true
+
+  return (
+    <div className="screen screen-profile-detail">
+      <StatusBar time="9:41" />
+      <header className="app-header">
+        <div className="header-side">
+          <IconButton icon="back" label="뒤로" onClick={goBack} />
+        </div>
+        <h1>{title}</h1>
+        <div className="header-side right">
+          {isSelf ? (
+            <button className="text-link" type="button" onClick={() => navigate('/settings/privacy')}>설정</button>
+          ) : null}
+        </div>
+      </header>
+
+      {state.status === 'loading' ? (
+        <EmptyState title="프로필을 불러오는 중이에요" subtitle="연결된 금융 요약을 정리하고 있어요." icon="search" />
+      ) : null}
+      {state.status === 'error' ? (
+        <EmptyState title="프로필을 불러오지 못했어요" subtitle={state.message} icon="search" />
+      ) : null}
+      {state.status === 'ready' ? <ProfileDetailBody screen={state.screen} navigate={navigate} /> : null}
+    </div>
+  )
+}
+
+function ProfileDetailBody({ screen, navigate }: { screen: AppScreenResponse; navigate: Navigate }) {
+  const model = useMemo(() => toProfileDetailModel(screen), [screen])
   const missionRef = useRef<HTMLDivElement>(null)
   const incomeRef = useRef<HTMLDivElement>(null)
   const assetsRef = useRef<HTMLDivElement>(null)
@@ -25,64 +184,61 @@ export function DetailedProfilePage({ navigate }: { navigate: Navigate }) {
   }
 
   return (
-    <div className="screen screen-profile-detail">
-      <StatusBar time="9:41" />
-      <header className="app-header">
-        <div className="header-side">
-          <IconButton icon="back" label="뒤로" onClick={() => navigate('/profile')} />
-        </div>
-        <h1>프로필</h1>
-        <div className="header-side right">
-          <button className="text-link" type="button" onClick={() => navigate('/settings/privacy')}>설정</button>
-        </div>
-      </header>
-
-      <ProfileHero />
-      <SummaryBadges onSelect={(key) => scrollTo(key === 'income' ? incomeRef : key === 'assets' ? assetsRef : spendingRef)} />
+    <>
+      <ProfileHero model={model} />
+      <SummaryBadges model={model} onSelect={(key) => scrollTo(key === 'income' ? incomeRef : key === 'assets' ? assetsRef : spendingRef)} />
 
       <section className="screen-stack">
-        <div ref={missionRef}>
-          <MissionsSection />
-        </div>
+        {model.missions.length ? (
+          <div ref={missionRef}>
+            <MissionsSection missions={model.missions} />
+          </div>
+        ) : null}
         <div ref={incomeRef}>
-          <IncomeSection />
+          <IncomeSection model={model} />
         </div>
         <div ref={assetsRef}>
-          <AssetsSection navigate={navigate} />
+          <AssetsSection model={model} navigate={navigate} />
         </div>
         <div ref={spendingRef}>
-          <SpendingSection onStartMission={() => scrollTo(missionRef)} />
+          <SpendingSection model={model} onStartMission={() => scrollTo(missionRef)} />
         </div>
-        <IncomeSavingsSection />
-        <MonthlyReportSection />
-        <InsuranceSection />
+        <IncomeSavingsSection model={model} />
+        {model.monthlyReport ? <MonthlyReportSection model={model} /> : null}
+        <InsuranceSection model={model} />
       </section>
-    </div>
+    </>
   )
 }
 
-function ProfileHero() {
-  const { header } = detailedProfile
+function ProfileHero({ model }: { model: ProfileDetailModel }) {
+  const seed = model.header.anonymousAvatarSeed
   return (
     <section className="pd-hero">
       <div className="pd-avatar-wrap">
-        <span className="pd-avatar pd-avatar-icon" aria-hidden="true">
-          <IconBadge icon="profile" tone="teal" />
-        </span>
-        <span className="pd-avatar-badge">{header.gradeBadge}</span>
+        {seed ? (
+          <span className="pd-avatar" style={anonymousAvatarStyle(seed)} aria-hidden="true">
+            {anonymousAvatarGlyph(seed)}
+          </span>
+        ) : (
+          <span className="pd-avatar pd-avatar-icon" aria-hidden="true">
+            <IconBadge icon="profile" tone="teal" />
+          </span>
+        )}
+        <span className="pd-avatar-badge">{model.header.gradeBadge}</span>
       </div>
-      <strong className="pd-nickname">{header.nickname}</strong>
-      <p className="pd-subinfo">{header.ageBand} · {header.jobStatus}</p>
+      <strong className="pd-nickname">{model.header.nickname}</strong>
+      {model.header.subinfo ? <p className="pd-subinfo">{model.header.subinfo}</p> : null}
       <div className="pd-follow-row">
-        <span>Followers <b>{header.followers}</b></span>
-        <span>Following <b>{header.following}</b></span>
+        <span>Followers <b>{model.header.followers}</b></span>
+        <span>Following <b>{model.header.following}</b></span>
       </div>
     </section>
   )
 }
 
-function SummaryBadges({ onSelect }: { onSelect: (key: 'income' | 'assets' | 'spending') => void }) {
-  const { summaryBadges } = detailedProfile
+function SummaryBadges({ model, onSelect }: { model: ProfileDetailModel; onSelect: (key: 'income' | 'assets' | 'spending') => void }) {
+  const { summaryBadges } = model
   return (
     <div className="pd-summary-badges">
       <button className="pd-summary-badge" type="button" onClick={() => onSelect('income')}>
@@ -101,12 +257,12 @@ function SummaryBadges({ onSelect }: { onSelect: (key: 'income' | 'assets' | 'sp
   )
 }
 
-function MissionsSection() {
+function MissionsSection({ missions }: { missions: MissionSummary[] }) {
   return (
     <AppSectionCard>
       <SectionHeading eyebrow="게임화" title="진행 중인 미션" />
       <div className="pd-mission-stack">
-        {detailedProfile.missions.map((mission) => (
+        {missions.map((mission) => (
           <MissionCard
             key={mission.id}
             title={mission.title}
@@ -121,19 +277,18 @@ function MissionsSection() {
   )
 }
 
-function IncomeSection() {
-  const { income } = detailedProfile
+function IncomeSection({ model }: { model: ProfileDetailModel }) {
   return (
     <AppSectionCard>
-      <SectionHeading eyebrow="소득" title="올해 소득" />
-      <BigNumber value={manwonValue(detailedProfile.summaryBadges.annualIncome.amount)} unit="만원" size="l" />
-      <IncomeBarChart yearly={income.yearly} />
-      <p className="pd-insight">{income.insight}</p>
+      <SectionHeading eyebrow="소득" title="소득과 저축" />
+      <BigNumber value={model.income.amountValue} unit="만원" size="l" caption={model.income.caption} />
+      {model.income.yearly.length ? <IncomeBarChart yearly={model.income.yearly} /> : null}
+      <p className="pd-insight">{model.income.insight}</p>
     </AppSectionCard>
   )
 }
 
-function IncomeBarChart({ yearly }: { yearly: typeof detailedProfile.income.yearly }) {
+function IncomeBarChart({ yearly }: { yearly: Array<{ year: number; amount: number; amountLabel: string }> }) {
   const max = Math.max(...yearly.map((point) => point.amount))
   const currentYear = Math.max(...yearly.map((point) => point.year))
   return (
@@ -149,14 +304,14 @@ function IncomeBarChart({ yearly }: { yearly: typeof detailedProfile.income.year
   )
 }
 
-function AssetsSection({ navigate }: { navigate: Navigate }) {
-  const { assets } = detailedProfile
+function AssetsSection({ model, navigate }: { model: ProfileDetailModel; navigate: Navigate }) {
+  const { assets } = model
   const colorById = buildCategoryColorMap(assets.categories)
 
   return (
     <AppSectionCard>
       <SectionHeading eyebrow="금융자산" title="총 금융자산" />
-      <BigNumber value={manwonValue(assets.total)} unit="만원" size="l" />
+      <BigNumber value={assets.totalValue} unit="만원" size="l" />
       <div className="pd-asset-stack-bar" role="img" aria-label="자산 구성 비중">
         {assets.categories.map((category) => (
           <span
@@ -172,7 +327,7 @@ function AssetsSection({ navigate }: { navigate: Navigate }) {
             className="pd-asset-card"
             type="button"
             key={category.id}
-            onClick={() => navigate(`/profile/detail/assets/${category.id}`)}
+            onClick={() => navigate(category.detailPath ?? '/profile/detail')}
           >
             <span className="pd-asset-card-head">
               <i style={{ background: colorById.get(category.id) }} />
@@ -188,14 +343,14 @@ function AssetsSection({ navigate }: { navigate: Navigate }) {
   )
 }
 
-function SpendingSection({ onStartMission }: { onStartMission: () => void }) {
-  const { spending } = detailedProfile
+function SpendingSection({ model, onStartMission }: { model: ProfileDetailModel; onStartMission: () => void }) {
+  const { spending } = model
   const colorById = buildCategoryColorMap(spending.categories)
 
   return (
     <AppSectionCard>
       <SectionHeading eyebrow="소비 패턴" title="이번 달 소비" />
-      <BigNumber value={manwonValue(spending.total)} unit="만원" size="l" caption={spending.comparisonNote} />
+      <BigNumber value={spending.totalValue} unit="만원" size="l" caption={spending.comparisonNote} />
       <SpendingDonut categories={spending.categories} colorById={colorById} totalLabel={spending.totalLabel} />
       <div className="pd-category-list">
         {spending.categories.map((category) => (
@@ -213,7 +368,9 @@ function SpendingSection({ onStartMission }: { onStartMission: () => void }) {
         ))}
       </div>
       <p className="pd-insight">{spending.insight}</p>
-      <CoachBubble message={spending.coachMessage} ctaLabel="미션 시작하기" onCta={onStartMission} />
+      {model.isSelf && spending.coachMessage ? (
+        <CoachBubble message={spending.coachMessage} ctaLabel="미션 시작하기" onCta={onStartMission} />
+      ) : null}
     </AppSectionCard>
   )
 }
@@ -246,8 +403,8 @@ function SpendingDonut({
   )
 }
 
-function IncomeSavingsSection() {
-  const { incomeSavings } = detailedProfile
+function IncomeSavingsSection({ model }: { model: ProfileDetailModel }) {
+  const { incomeSavings } = model
   return (
     <AppSectionCard>
       <SectionHeading eyebrow="개인 분석" title="소득·저축 패턴" />
@@ -269,7 +426,7 @@ function IncomeSavingsSection() {
           <strong>{incomeSavings.savingsRateLabel}</strong>
         </div>
       </div>
-      <SavingsTrendChart trend={incomeSavings.trend} />
+      {incomeSavings.trend.length ? <SavingsTrendChart trend={incomeSavings.trend} /> : null}
       <p className="pd-insight">{incomeSavings.insight}</p>
     </AppSectionCard>
   )
@@ -286,8 +443,9 @@ function SavingsTrendChart({ trend }: { trend: SavingsTrendPoint[] }) {
   )
 }
 
-function MonthlyReportSection() {
-  const { monthlyReport } = detailedProfile
+function MonthlyReportSection({ model }: { model: ProfileDetailModel }) {
+  const monthlyReport = model.monthlyReport
+  if (!monthlyReport) return null
   return (
     <AppSectionCard>
       <SectionHeading eyebrow="AI 코치 요약" title="이번 달 분석 리포트" />
@@ -303,19 +461,161 @@ function MonthlyReportSection() {
   )
 }
 
-function InsuranceSection() {
-  const { insurance } = detailedProfile
+function InsuranceSection({ model }: { model: ProfileDetailModel }) {
+  const { insurance } = model
   return (
     <AppSectionCard>
       <SectionHeading eyebrow="보험" title="가입 현황" />
       <div className="pd-insurance-row">
         <div>
           <strong>{insurance.monthlyPremiumLabel}</strong>
-          <small>총 {insurance.productCount}개</small>
+          <small>{insurance.productCount}</small>
         </div>
       </div>
     </AppSectionCard>
   )
+}
+
+function toProfileDetailModel(screen: AppScreenResponse): ProfileDetailModel {
+  const hero = sectionByKind(screen, 'profileDetailHero')
+  const summary = sectionByKind(screen, 'profileDetailSummary')
+  const missions = sectionByKind(screen, 'profileDetailMissions')
+  const income = sectionByKind(screen, 'profileDetailIncome')
+  const assets = sectionByKind(screen, 'profileDetailAssets')
+  const spending = sectionByKind(screen, 'profileDetailSpending')
+  const report = sectionByKind(screen, 'profileDetailReport')
+  const insurance = sectionByKind(screen, 'profileDetailInsurance')
+  const isSelf = dataBool(screen.meta, 'isSelf', dataBool(hero?.data, 'isSelf', false))
+  const rawSeed = dataText(hero?.data, 'anonymousAvatarSeed')
+  const seed = isSelf ? null : rawSeed
+  const annualIncome = metricAt(summary, 0, '연 소득', '0만원')
+  const totalAssets = metricAt(summary, 1, '총 금융자산', '0만원')
+  const monthlySpending = metricAt(summary, 2, '이번 달 소비', '0만원')
+  const incomeMetric = metricAt(income, 0, '월 소득', annualIncome.value)
+  const savingsMetric = metricAt(income, 1, '월 저축', '0만원')
+  const assetMetric = metricAt(assets, 0, '총 자산', totalAssets.value)
+  const spendingMetric = metricAt(spending, 0, '총 소비', monthlySpending.value)
+  const savingsRateLabel = savingsMetric.caption?.replace(/^저축률\s*/, '') ?? `${metricProgress(savingsMetric)}%`
+
+  return {
+    title: screen.title,
+    isSelf,
+    header: {
+      nickname: hero?.title ?? screen.title,
+      gradeBadge: seed ? '익명 프로필' : '내 프로필',
+      subinfo: hero?.subtitle ?? '',
+      followers: metricByLabel(hero, '팔로워')?.value ?? '-',
+      following: metricByLabel(hero, '팔로잉')?.value ?? '-',
+      anonymousAvatarSeed: seed,
+    },
+    summaryBadges: {
+      annualIncome: amountBadge(annualIncome),
+      totalAssets: amountBadge(totalAssets),
+      monthlySpending: amountBadge(monthlySpending),
+    },
+    missions: (missions?.items ?? []).map(toMissionSummary),
+    income: {
+      amountLabel: incomeMetric.value,
+      amountValue: labelToManwon(incomeMetric.value),
+      caption: incomeMetric.caption,
+      insight: income?.subtitle ?? '월 소득과 저축 흐름을 기준으로 봅니다.',
+      yearly: [],
+    },
+    assets: {
+      totalLabel: assetMetric.value,
+      totalValue: labelToManwon(assetMetric.value),
+      categories: (assets?.items ?? []).map(toAssetCategory),
+      styleInsight: assets?.subtitle ?? '계좌와 투자 상품을 카테고리별로 봅니다.',
+    },
+    spending: {
+      totalLabel: spendingMetric.value,
+      totalValue: labelToManwon(spendingMetric.value),
+      comparisonNote: spendingMetric.caption,
+      categories: (spending?.items ?? []).map(toSpendingCategory),
+      insight: spending?.subtitle ?? '개별 거래는 숨기고 카테고리 합계만 보여줍니다.',
+      coachMessage: isSelf ? '이번 달 소비 흐름을 보고 바로 실천할 미션을 골라보세요.' : null,
+    },
+    incomeSavings: {
+      avgIncomeLabel: incomeMetric.value,
+      avgSpendingLabel: monthlySpending.value,
+      avgSavingsLabel: savingsMetric.value,
+      savingsRateLabel,
+      insight: income?.subtitle ?? '소득과 저축을 월 단위로 확인합니다.',
+      trend: [],
+    },
+    monthlyReport: report ? {
+      insights: (report.items ?? []).map((item) => `${item.title}: ${item.subtitle ?? ''}`.trim()),
+      recommendedMissions: (report.items ?? []).map((item) => item.title),
+    } : null,
+    insurance: {
+      monthlyPremiumLabel: metricAt(insurance, 0, '보험 데이터', '미연결').value,
+      productCount: metricAt(insurance, 0, '보험 데이터', '미연결').caption ?? '후속 MyData 범위',
+    },
+  }
+}
+
+function sectionByKind(screen: AppScreenResponse, kind: string): AppSection | undefined {
+  return screen.sections.find((section) => section.kind === kind)
+}
+
+function metricAt(section: AppSection | undefined, index: number, fallbackLabel: string, fallbackValue: string): AppMetric {
+  return section?.metrics?.[index] ?? { label: fallbackLabel, value: fallbackValue, caption: null, tone: null, progress: null }
+}
+
+function metricByLabel(section: AppSection | undefined, label: string): AppMetric | undefined {
+  return section?.metrics?.find((metric) => metric.label === label)
+}
+
+function amountBadge(metric: AppMetric): AmountBadge {
+  return {
+    label: metric.label,
+    amountLabel: metric.value,
+    amountValue: labelToManwon(metric.value),
+  }
+}
+
+function toMissionSummary(item: AppItem): MissionSummary {
+  return {
+    id: item.id,
+    title: item.title,
+    rewardPoints: dataNumberOr(item.data, 'rewardPoints', parseNumber(item.value ?? item.caption ?? '0')),
+    status: missionStatus(item),
+    progressLabel: item.caption ?? item.subtitle,
+    progressPercent: dataOptionalNumber(item.data, 'progressPercent') ?? dataOptionalNumber(item.data, 'progress'),
+  }
+}
+
+function missionStatus(item: AppItem): MissionStatus {
+  const rawStatus = dataText(item.data, 'status')?.toLowerCase()
+  const rawEvaluation = dataText(item.data, 'evaluationStatus')?.toLowerCase()
+  const text = `${rawStatus ?? ''} ${rawEvaluation ?? ''} ${item.caption ?? ''}`
+  if (text.includes('done') || text.includes('complete') || text.includes('success') || text.includes('완료')) return 'done'
+  if (text.includes('progress') || text.includes('진행')) return 'in_progress'
+  return 'todo'
+}
+
+function toAssetCategory(item: AppItem): AssetCategory {
+  return {
+    id: item.id,
+    label: item.title,
+    sharePercent: dataNumberOr(item.data, 'sharePercent', parsePercent(item.caption)),
+    amountLabel: item.value ?? '0만원',
+    note: item.subtitle ?? '',
+    isLiability: item.tone === 'muted',
+    detailPath: item.detailPath,
+  }
+}
+
+function toSpendingCategory(item: AppItem): SpendingCategory {
+  return {
+    id: item.id,
+    emoji: emojiForIcon(item.icon),
+    label: item.title,
+    amountLabel: item.value ?? '0만원',
+    sharePercent: dataNumberOr(item.data, 'sharePercent', parsePercent(item.caption)),
+    deltaLabel: item.caption ?? '카테고리 합계',
+    deltaTone: 'flat',
+  }
 }
 
 function buildCategoryColorMap(categories: Array<AssetCategory | SpendingCategory>): Map<string, string> {
@@ -333,6 +633,65 @@ function buildCategoryColorMap(categories: Array<AssetCategory | SpendingCategor
   return colorById
 }
 
-function manwonValue(value: number): number {
-  return Math.round(value / 10_000)
+function labelToManwon(label?: string | null): number {
+  if (!label) return 0
+  const normalized = label.replace(/,/g, '')
+  const match = normalized.match(/-?\d+(?:\.\d+)?/)
+  if (!match) return 0
+  const value = Number(match[0])
+  if (!Number.isFinite(value)) return 0
+  if (normalized.includes('억원')) return Math.round(value * 10_000)
+  if (normalized.includes('만원')) return Math.round(value)
+  if (normalized.includes('원')) return Math.round(value / 10_000)
+  return Math.round(value)
+}
+
+function parseNumber(label: string): number {
+  const match = label.replace(/,/g, '').match(/-?\d+(?:\.\d+)?/)
+  return match ? Number(match[0]) : 0
+}
+
+function parsePercent(label?: string | null): number {
+  if (!label) return 0
+  return Math.max(0, Math.min(100, Math.round(parseNumber(label))))
+}
+
+function metricProgress(metric: AppMetric): number {
+  return typeof metric.progress === 'number' ? Math.round(metric.progress) : parsePercent(metric.caption)
+}
+
+function dataText(data: Record<string, unknown> | null | undefined, key: string): string | null {
+  const value = data?.[key]
+  return typeof value === 'string' && value.trim() ? value : null
+}
+
+function dataBool(data: Record<string, unknown> | null | undefined, key: string, fallback: boolean): boolean {
+  const value = data?.[key]
+  return typeof value === 'boolean' ? value : fallback
+}
+
+function dataOptionalNumber(data: Record<string, unknown> | null | undefined, key: string): number | null {
+  const value = data?.[key]
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function dataNumberOr(data: Record<string, unknown> | null | undefined, key: string, fallback: number): number {
+  return dataOptionalNumber(data, key) ?? fallback
+}
+
+function emojiForIcon(icon?: string | null): string {
+  switch (icon) {
+    case 'spend':
+      return '🍚'
+    case 'transport':
+      return '🚌'
+    case 'stocks':
+      return '📈'
+    case 'saving':
+      return '💰'
+    case 'wallet':
+      return '👛'
+    default:
+      return '•'
+  }
 }

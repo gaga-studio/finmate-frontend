@@ -59,10 +59,17 @@ export function AppScreenPage({
     return <CompareOneOnOneSimulationPage memberId={route.param ?? ''} navigate={navigate} />
   }
   if (route.screen === 'profile-detail') {
-    return <DetailedProfilePage navigate={navigate} />
+    return <DetailedProfilePage targetUserId={route.param} navigate={navigate} />
   }
   if (route.screen === 'profile-detail-asset') {
-    return <AssetCategoryDetailPage categoryId={route.param ?? 'checking'} navigate={navigate} />
+    const [targetOrAssetId, maybeAssetId] = (route.param ?? 'checking').split(':')
+    return (
+      <AssetCategoryDetailPage
+        categoryId={maybeAssetId ?? targetOrAssetId ?? 'checking'}
+        targetUserId={maybeAssetId ? targetOrAssetId : undefined}
+        navigate={navigate}
+      />
+    )
   }
 
   return <LoadedAppScreen pathname={pathname} route={route} navigate={navigate} />

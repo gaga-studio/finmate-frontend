@@ -1244,6 +1244,205 @@ function profileScreen(): AppScreenResponse {
   return screen({ screenId: 'profile', title: '프로필', tab: 'profile', sections })
 }
 
+function profileDetailScreen(targetUserId?: string): AppScreenResponse {
+  const self = !targetUserId
+  const displayName = self ? mockUser.displayName : '단단한고래3396'
+  const subtitle = self
+    ? '25세 · 영업관리 · 서울 · 독립 준비형'
+    : '20대 후반 · IT/개발 · 서울 강남권 · 안정 추구형'
+  const detailPrefix = self ? '/profile/detail' : `/profile/detail/${targetUserId}`
+  const sections: AppSection[] = [
+    {
+      id: 'profile-detail-hero',
+      kind: 'profileDetailHero',
+      title: displayName,
+      subtitle,
+      metrics: [
+        { label: '팔로워', value: self ? '128명' : '42명', caption: '나를 보는 사람', tone: 'green' },
+        { label: '팔로잉', value: self ? '5명' : '18명', caption: '내가 보는 사람', tone: 'teal' },
+      ],
+      data: {
+        targetUserId: targetUserId ?? mockUser.userId,
+        isSelf: self,
+        isAnonymous: !self,
+        actualNameHidden: !self,
+        anonymousAvatarSeed: self ? null : targetUserId,
+      },
+    },
+    {
+      id: 'profile-detail-summary',
+      kind: 'profileDetailSummary',
+      title: '금융 요약',
+      subtitle: '소득, 자산, 소비를 한눈에 봅니다.',
+      metrics: [
+        { label: '연 소득', value: '4,392만원', caption: '월 366만원', tone: 'green' },
+        { label: '총 금융자산', value: '2,609만원', caption: '연결 자산 기준', tone: 'teal' },
+        { label: '이번 달 소비', value: '283만원', caption: '저축 73만원', tone: 'warning' },
+      ],
+      data: { targetUserId: targetUserId ?? mockUser.userId },
+    },
+    ...(self ? [{
+      id: 'profile-detail-missions',
+      kind: 'profileDetailMissions',
+      title: '진행 중인 미션',
+      subtitle: '내 행동 데이터로 추적 중인 목표입니다.',
+      items: [
+        {
+          id: 'mission-lunch',
+          title: '이번 주 점심 외식 2번 줄이기',
+          subtitle: '현재 1/2회',
+          value: '40P',
+          caption: '현재 1/2회',
+          icon: 'mission',
+          tone: 'teal',
+          data: { rewardPoints: 40, progressPercent: 50, status: 'IN_PROGRESS' },
+        },
+        {
+          id: 'mission-cafe',
+          title: '카페·간식 1만5천원 아끼기',
+          subtitle: '현재 약 1만원 절감',
+          value: '40P',
+          caption: '현재 약 1만원 절감',
+          icon: 'mission',
+          tone: 'teal',
+          data: { rewardPoints: 40, progressPercent: 41, status: 'IN_PROGRESS' },
+        },
+      ],
+      data: { selfOnly: true },
+    } satisfies AppSection] : []),
+    {
+      id: 'profile-detail-income',
+      kind: 'profileDetailIncome',
+      title: '소득과 저축',
+      subtitle: '월 소득과 저축 흐름을 기준으로 봅니다.',
+      metrics: [
+        { label: '월 소득', value: '366만원', caption: '연 4,392만원', tone: 'green' },
+        { label: '월 저축', value: '73만원', caption: '저축률 20%', tone: 'green', progress: 20 },
+      ],
+      data: { savingsRate: 20 },
+    },
+    {
+      id: 'profile-detail-assets',
+      kind: 'profileDetailAssets',
+      title: '금융자산',
+      subtitle: '계좌와 투자 상품을 카테고리별로 봅니다.',
+      metrics: [{ label: '총 자산', value: '2,609만원', caption: '계좌/투자 평가 기준', tone: 'teal' }],
+      items: [
+        { id: 'checking', title: '입출금', subtitle: '생활비와 간편결제', value: '1,530만원', caption: '59%', icon: 'wallet', tone: 'teal', detailPath: `${detailPrefix}/assets/checking`, data: { assetId: 'checking', sharePercent: 59 } },
+        { id: 'savings', title: '적금/비상금', subtitle: '저축성 계좌', value: '542만원', caption: '21%', icon: 'saving', tone: 'teal', detailPath: `${detailPrefix}/assets/savings`, data: { assetId: 'savings', sharePercent: 21 } },
+        { id: 'investment', title: '투자', subtitle: '주식/ETF 평가', value: '414만원', caption: '16%', icon: 'stocks', tone: 'green', detailPath: `${detailPrefix}/assets/investment`, data: { assetId: 'investment', sharePercent: 16 } },
+        { id: 'deposit', title: '청약', subtitle: '청약 준비', value: '123만원', caption: '4%', icon: 'saving', tone: 'teal', detailPath: `${detailPrefix}/assets/deposit`, data: { assetId: 'deposit', sharePercent: 4 } },
+      ],
+      data: { totalAmountLabel: '2,609만원', amountPrecision: self ? 'exact' : 'rounded-manwon' },
+    },
+    {
+      id: 'profile-detail-spending',
+      kind: 'profileDetailSpending',
+      title: '이번 달 소비',
+      subtitle: '개별 거래는 숨기고 카테고리 합계만 보여줍니다.',
+      metrics: [{ label: '총 소비', value: '283만원', caption: '식비 비중이 가장 커요', tone: 'warning' }],
+      items: [
+        { id: 'spending-food', title: '식비', subtitle: '카테고리 합계', value: '83만원', caption: '29%', icon: 'spend', tone: 'warning', data: { sharePercent: 29, transactionRowsHidden: true } },
+        { id: 'spending-education', title: '교육·학습', subtitle: '카테고리 합계', value: '47만원', caption: '17%', icon: 'study', tone: 'warning', data: { sharePercent: 17, transactionRowsHidden: true } },
+        { id: 'spending-shopping', title: '쇼핑·패션', subtitle: '카테고리 합계', value: '36만원', caption: '13%', icon: 'spend', tone: 'warning', data: { sharePercent: 13, transactionRowsHidden: true } },
+        { id: 'spending-life', title: '생활', subtitle: '카테고리 합계', value: '34만원', caption: '12%', icon: 'wallet', tone: 'warning', data: { sharePercent: 12, transactionRowsHidden: true } },
+      ],
+      data: { transactionRowsHidden: true },
+    },
+    ...(self ? [{
+      id: 'profile-detail-report',
+      kind: 'profileDetailReport',
+      title: '월간 분석 리포트',
+      subtitle: '내 데이터 기준으로만 제공되는 개인 분석입니다.',
+      items: [
+        { id: 'report-saving', title: '저축 루틴', subtitle: '저축률 20% 흐름을 유지하고 있어요.', icon: 'saving', tone: 'green' },
+        { id: 'report-spending', title: '소비 점검', subtitle: '식비가 가장 큰 지출이에요.', icon: 'chart', tone: 'warning' },
+      ],
+      data: { selfOnly: true },
+    } satisfies AppSection] : []),
+    {
+      id: 'profile-detail-insurance',
+      kind: 'profileDetailInsurance',
+      title: '보험',
+      subtitle: '현재 synthetic MyData에는 보험 상세가 없어 연결 상태만 표시합니다.',
+      metrics: [{ label: '보험 데이터', value: '미연결', caption: '후속 MyData 범위', tone: 'muted' }],
+      data: { empty: true },
+    },
+  ]
+
+  return screen({
+    screenId: `profile:detail:${targetUserId ?? mockUser.userId}`,
+    title: self ? '내 프로필 상세' : '프로필 상세',
+    tab: 'profile',
+    sections,
+    meta: { targetUserId: targetUserId ?? mockUser.userId, isSelf: self, actualNameHidden: !self },
+  })
+}
+
+function profileAssetDetailScreen(assetId: string, targetUserId?: string): AppScreenResponse {
+  const self = !targetUserId
+  const titleByAsset: Record<string, string> = {
+    checking: '입출금',
+    savings: '적금/비상금',
+    deposit: '청약',
+    investment: '투자',
+  }
+  const valueByAsset: Record<string, string> = {
+    checking: '1,530만원',
+    savings: '542만원',
+    deposit: '123만원',
+    investment: '414만원',
+  }
+  const sectionItemsByAsset: Record<string, AppItem[]> = {
+    checking: [
+      { id: 'checking-1', title: '생활비 관리 통장', subtitle: '은행 계좌', value: '1,530만원', icon: 'wallet', tone: 'teal', data: { identifiersHidden: true } },
+      { id: 'checking-2', title: '간편결제 머니', subtitle: '간편결제', value: '잔액 미제공', icon: 'wallet', tone: 'green', data: { identifiersHidden: true } },
+    ],
+    savings: [
+      { id: 'savings-1', title: '자유적립 저축계좌', subtitle: '저축성 계좌', value: '542만원', icon: 'saving', tone: 'teal', data: { identifiersHidden: true } },
+    ],
+    deposit: [
+      { id: 'deposit-1', title: '주택청약 통장', subtitle: '청약 준비', value: '123만원', icon: 'saving', tone: 'teal', data: { identifiersHidden: true } },
+    ],
+    investment: [
+      { id: 'invest-1', title: '국내 주식형 상품', subtitle: '투자 상품', value: '167만원', caption: '+10만원 (+3.7%)', icon: 'stocks', tone: 'green', data: { identifiersHidden: true } },
+      { id: 'invest-2', title: 'ETF 상품', subtitle: '투자 상품', value: '108만원', caption: '변동 작음', icon: 'stocks', tone: 'teal', data: { identifiersHidden: true } },
+      { id: 'invest-3', title: '투자 대기 현금', subtitle: '예수금', value: '138만원', icon: 'wallet', tone: 'green', data: { identifiersHidden: true } },
+    ],
+  }
+  const label = titleByAsset[assetId] ?? '입출금'
+  return screen({
+    screenId: `profile:detail:${targetUserId ?? mockUser.userId}:asset:${assetId}`,
+    title: label,
+    tab: 'profile',
+    sections: [
+      {
+        id: 'asset-detail-hero',
+        kind: 'profileAssetDetailHero',
+        title: label,
+        subtitle: `${self ? mockUser.displayName : '단단한고래3396'}님의 ${label}`,
+        metrics: [{ label: '합계', value: valueByAsset[assetId] ?? '0만원', caption: '식별자 숨김', tone: 'teal' }],
+        data: {
+          targetUserId: targetUserId ?? mockUser.userId,
+          assetId,
+          isAnonymous: !self,
+          actualNameHidden: !self,
+          anonymousAvatarSeed: targetUserId,
+        },
+      },
+      {
+        id: 'asset-detail-items',
+        kind: 'profileAssetDetailList',
+        title: '연결 상품',
+        subtitle: '계좌번호, 카드번호, 거래번호는 표시하지 않습니다.',
+        items: sectionItemsByAsset[assetId] ?? sectionItemsByAsset.checking,
+        data: { identifiersHidden: true },
+      },
+    ],
+    meta: { targetUserId: targetUserId ?? mockUser.userId, assetId, identifiersHidden: true },
+  })
+}
+
 function profileSectionScreen(section: string): AppScreenResponse {
   if (section === 'privacy') {
     return screen({
@@ -1479,6 +1678,8 @@ export const mockApi = {
   getAppRecordDetail: (date: string) => wait(recordDetailScreen(date)),
   getAppProfile: () => wait(profileScreen()),
   getAppProfileSection: (section: string) => wait(profileSectionScreen(section)),
+  getAppProfileDetail: (targetUserId?: string) => wait(profileDetailScreen(targetUserId)),
+  getAppProfileAssetDetail: (assetId: string, targetUserId?: string) => wait(profileAssetDetailScreen(assetId, targetUserId)),
   getAppBirthdays: () => wait(birthdaysScreen()),
   getAppBirthdayFlow: (birthdayId: string) => wait(birthdayFlowScreen(birthdayId)),
   contributeBirthdayFund: (fundId: string): Promise<AppActionResultResponse> =>
