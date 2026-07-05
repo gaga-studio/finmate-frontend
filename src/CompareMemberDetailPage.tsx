@@ -4,7 +4,6 @@ import { describeError } from './errors'
 import type { Navigate } from './navigation'
 import type { AppItem, AppScreenResponse, ProfileFinancialFacts } from './types'
 import { profileFactsFromItem } from './profileFacts'
-import { BigNumber } from './components'
 import { anonymousAvatarGlyph, anonymousAvatarStyle } from './anonymousAvatar'
 import { AppSectionCard, EmptyState, SectionHeading } from './AppComponents'
 import { IconButton, StatusBar } from './uiPrimitives'
@@ -134,13 +133,14 @@ function MemberHero({ facts }: { facts: ProfileFinancialFacts }) {
 }
 
 function MemberSummaryBadges({ facts }: { facts: ProfileFinancialFacts }) {
-  const total = totalSpending(facts.categorySpending)
   return (
     <div className="pd-summary-badges">
-      <span className="pd-summary-badge">
-        <span>이번 달 소비</span>
-        <strong>{total.toLocaleString('ko-KR')}원</strong>
-      </span>
+      {facts.monthlySpendingLabel ? (
+        <span className="pd-summary-badge">
+          <span>이번 달 소비</span>
+          <strong>{facts.monthlySpendingLabel}</strong>
+        </span>
+      ) : null}
       {facts.savingsLabel ? (
         <span className="pd-summary-badge">
           <span>예적금</span>
@@ -160,12 +160,17 @@ function MemberSummaryBadges({ facts }: { facts: ProfileFinancialFacts }) {
 function MemberAssetsSection({ item }: { item: AppItem }) {
   const categories = assetCategoriesFromItem(item)
   if (categories.length === 0) return null
-  const total = categories.reduce((sum, category) => sum + parseWon(category.amountLabel), 0)
+  const totalAssetsLabel = dataText(item, 'totalAssetsLabel')
 
   return (
     <AppSectionCard>
       <SectionHeading eyebrow="금융자산" title="자산 구성" />
-      <BigNumber value={total} unit="원" size="l" />
+      {totalAssetsLabel ? (
+        <div className="pd-public-amount">
+          <span>총 금융자산</span>
+          <strong>{totalAssetsLabel}</strong>
+        </div>
+      ) : null}
       <div className="pd-asset-stack-bar" role="img" aria-label="자산 구성 비중">
         {categories.map((category, index) => (
           <span
@@ -198,15 +203,20 @@ function assetCategoriesFromItem(item: AppItem): AssetCategoryEntry[] {
 
 function MemberSpendingSection({ facts }: { facts: ProfileFinancialFacts }) {
   const categories = facts.categorySpending ?? []
-  const amounts = categories.map((category) => parseWon(category.amountLabel))
-  const total = amounts.reduce((sum, amount) => sum + amount, 0)
+  const shares = categories.map((category) => safeShare(category.sharePercent))
+  const hasShares = shares.some((share) => share > 0)
 
   return (
     <AppSectionCard>
       <SectionHeading eyebrow="소비 패턴" title="카테고리별 소비" />
-      <BigNumber value={total} unit="원" size="l" />
-      {total > 0 ? (
-        <MemberSpendingDonut categories={categories} amounts={amounts} total={total} />
+      {facts.monthlySpendingLabel ? (
+        <div className="pd-public-amount">
+          <span>이번 달 소비</span>
+          <strong>{facts.monthlySpendingLabel}</strong>
+        </div>
+      ) : null}
+      {hasShares ? (
+        <MemberSpendingDonut categories={categories} shares={shares} totalLabel={facts.monthlySpendingLabel ?? '만원 단위'} />
       ) : null}
       <div className="pd-category-list">
         {categories.map((category, index) => (
@@ -226,17 +236,17 @@ function MemberSpendingSection({ facts }: { facts: ProfileFinancialFacts }) {
 
 function MemberSpendingDonut({
   categories,
-  amounts,
-  total,
+  shares,
+  totalLabel,
 }: {
-  categories: Array<{ category: string; amountLabel: string }>
-  amounts: number[]
-  total: number
+  categories: Array<{ category: string; amountLabel: string; sharePercent?: number }>
+  shares: number[]
+  totalLabel: string
 }) {
   let cursor = 0
   const stops = categories.map((_category, index) => {
     const start = cursor
-    const share = (amounts[index] / total) * 100
+    const share = shares[index] ?? 0
     cursor += share
     return `${SPENDING_RAMP[index % SPENDING_RAMP.length]} ${start}% ${cursor}%`
   })
@@ -246,7 +256,7 @@ function MemberSpendingDonut({
       <div className="pd-donut" style={{ background: `conic-gradient(${stops.join(', ')})` }} role="img" aria-label="카테고리별 소비 비중">
         <div className="pd-donut-hole">
           <span>이번 달 소비</span>
-          <strong>{total.toLocaleString('ko-KR')}원</strong>
+          <strong>{totalLabel}</strong>
         </div>
       </div>
     </div>
@@ -264,11 +274,11 @@ function MemberTagsSection({ facts }: { facts: ProfileFinancialFacts }) {
   )
 }
 
-function totalSpending(categorySpending: ProfileFinancialFacts['categorySpending']): number {
-  return (categorySpending ?? []).reduce((sum, category) => sum + parseWon(category.amountLabel), 0)
+function safeShare(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : 0
 }
 
-function parseWon(label: string): number {
-  const match = label.match(/[\d,]+/)
-  return match ? Number(match[0].replace(/,/g, '')) : 0
+function dataText(item: AppItem, key: string): string | null {
+  const value = item.data?.[key]
+  return typeof value === 'string' && value.length > 0 ? value : null
 }

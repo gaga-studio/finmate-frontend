@@ -33,17 +33,17 @@ export const MY_BASELINE = {
 }
 
 export function formatGapValue(value: number, unit: GapUnit): string {
-  if (unit === 'won') return `${Math.round(value).toLocaleString('ko-KR')}원`
+  if (unit === 'won') return manwon(value)
   if (unit === 'percent') return `${Math.round(value)}%`
   return `${value.toFixed(1)}개월`
 }
 
 export function computeOneOnOneComparison(item: AppItem): OneOnOneComparison {
   const peer = {
-    monthlyIncome: numberFromData(item.data, 'monthlyIncome', MY_BASELINE.monthlyIncome),
-    monthlySavings: numberFromData(item.data, 'monthlySavings', MY_BASELINE.monthlySavings),
-    monthlySpending: numberFromData(item.data, 'monthlySpending', MY_BASELINE.monthlySpending),
-    totalAssets: numberFromData(item.data, 'totalAssets', MY_BASELINE.totalAssets),
+    monthlyIncome: moneyValueFromData(item.data, 'monthlyIncomeLabel', MY_BASELINE.monthlyIncome),
+    monthlySavings: moneyValueFromData(item.data, 'monthlySavingsLabel', MY_BASELINE.monthlySavings),
+    monthlySpending: moneyValueFromData(item.data, 'monthlySpendingLabel', MY_BASELINE.monthlySpending),
+    totalAssets: moneyValueFromData(item.data, 'totalAssetsLabel', MY_BASELINE.totalAssets),
     investmentRatio: numberFromData(item.data, 'investmentRatio', MY_BASELINE.investmentRatio),
     emergencyFundMonths: numberFromData(item.data, 'emergencyFundMonths', MY_BASELINE.emergencyFundMonths),
   }
@@ -81,4 +81,23 @@ function buildGapItem(type: GapMetricType, label: string, myValue: number, peerV
 function numberFromData(data: Record<string, unknown> | null | undefined, key: string, fallback: number): number {
   const value = data?.[key]
   return typeof value === 'number' ? value : fallback
+}
+
+function moneyValueFromData(data: Record<string, unknown> | null | undefined, key: string, fallback: number): number {
+  const label = data?.[key]
+  if (typeof label === 'string') return parseMoneyLabel(label, fallback)
+  const legacyNumeric = data?.[key.replace('Label', '')]
+  return typeof legacyNumeric === 'number' ? legacyNumeric : fallback
+}
+
+function parseMoneyLabel(label: string, fallback: number): number {
+  const match = label.match(/[\d,]+/)
+  if (!match) return fallback
+  const value = Number(match[0].replace(/,/g, ''))
+  if (!Number.isFinite(value)) return fallback
+  return label.includes('만원') ? value * 10_000 : value
+}
+
+function manwon(value: number): string {
+  return `${Math.round(value / 10_000).toLocaleString('ko-KR')}만원`
 }

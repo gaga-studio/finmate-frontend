@@ -1,9 +1,8 @@
 import type { AppItem, ProfileFinancialFacts } from './types'
 
 /**
- * 필터링 조회 / 그룹 구성원 리스트에서 나오는 개인은 UI.md 6장의
- * `anonymous`(모르는 익명 개인) scope다 — 카테고리 단위 정확 금액과
- * 현금흐름 패턴까지 공개 가능하다.
+ * 필터링 조회 / 그룹 구성원 리스트에서 나오는 개인은 anonymous scope다.
+ * 이름은 익명 닉네임, 금액은 가까운 만원 단위 display label만 사용한다.
  */
 export function profileFactsFromItem(item: AppItem): ProfileFinancialFacts {
   return {
@@ -14,6 +13,10 @@ export function profileFactsFromItem(item: AppItem): ProfileFinancialFacts {
     incomeBand: dataText(item, 'incomeBand'),
     area: dataText(item, 'area'),
     moneyStyle: dataText(item, 'moneyStyle'),
+    monthlyIncomeLabel: dataText(item, 'monthlyIncomeLabel'),
+    monthlySavingsLabel: dataText(item, 'monthlySavingsLabel'),
+    monthlySpendingLabel: dataText(item, 'monthlySpendingLabel'),
+    totalAssetsLabel: dataText(item, 'totalAssetsLabel'),
     categorySpending: Array.isArray(item.data?.categorySpending)
       ? (item.data?.categorySpending as ProfileFinancialFacts['categorySpending'])
       : null,

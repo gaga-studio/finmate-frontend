@@ -126,7 +126,7 @@ function IncomeSection() {
   return (
     <AppSectionCard>
       <SectionHeading eyebrow="소득" title="올해 소득" />
-      <BigNumber value={detailedProfile.summaryBadges.annualIncome.amount} unit="원" size="l" />
+      <BigNumber value={manwonValue(detailedProfile.summaryBadges.annualIncome.amount)} unit="만원" size="l" />
       <IncomeBarChart yearly={income.yearly} />
       <p className="pd-insight">{income.insight}</p>
     </AppSectionCard>
@@ -156,7 +156,7 @@ function AssetsSection({ navigate }: { navigate: Navigate }) {
   return (
     <AppSectionCard>
       <SectionHeading eyebrow="금융자산" title="총 금융자산" />
-      <BigNumber value={assets.total} unit="원" size="l" />
+      <BigNumber value={manwonValue(assets.total)} unit="만원" size="l" />
       <div className="pd-asset-stack-bar" role="img" aria-label="자산 구성 비중">
         {assets.categories.map((category) => (
           <span
@@ -195,7 +195,7 @@ function SpendingSection({ onStartMission }: { onStartMission: () => void }) {
   return (
     <AppSectionCard>
       <SectionHeading eyebrow="소비 패턴" title="이번 달 소비" />
-      <BigNumber value={spending.total} unit="원" size="l" caption={spending.comparisonNote} />
+      <BigNumber value={manwonValue(spending.total)} unit="만원" size="l" caption={spending.comparisonNote} />
       <SpendingDonut categories={spending.categories} colorById={colorById} totalLabel={spending.totalLabel} />
       <div className="pd-category-list">
         {spending.categories.map((category) => (
@@ -329,6 +329,10 @@ function buildCategoryColorMap(categories: Array<AssetCategory | SpendingCategor
   ranked.forEach((category, index) => {
     colorById.set(category.id, TEAL_RAMP[Math.min(index, TEAL_RAMP.length - 1)])
   })
-  liabilities.forEach((category) => colorById.set(category.id, '#D7DEDB'))
+  liabilities.forEach((category) => colorById.set(category.id, 'var(--ink-300)'))
   return colorById
+}
+
+function manwonValue(value: number): number {
+  return Math.round(value / 10_000)
 }
