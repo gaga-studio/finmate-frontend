@@ -1,5 +1,6 @@
 import type { ProfileFinancialFacts, ProfileScope } from '../types'
 import { IconBadge } from '../uiPrimitives'
+import { anonymousAvatarGlyph, anonymousAvatarStyle } from '../anonymousAvatar'
 import { visibleProfileFields } from './profileScopeGuard'
 
 const scopeBadge: Record<ProfileScope, { label: string; tone: 'teal' | 'muted' | 'red' }> = {
@@ -21,12 +22,13 @@ export function ProfileCard({
   const visible = visibleProfileFields(scope)
   const badge = scopeBadge[scope]
   const metaLine = [facts.ageBand, facts.jobCategory, facts.incomeBand].filter(Boolean).join(' · ')
+  const avatarStyle = anonymousAvatarStyle(facts.anonymousAvatarSeed)
 
   const body = (
     <>
       <div className="pf-card-head">
-        <span className="pf-card-avatar" aria-hidden="true">
-          <IconBadge icon="profile" tone={badge.tone} />
+        <span className="pf-card-avatar" style={avatarStyle} aria-hidden="true">
+          {facts.anonymousAvatarSeed ? anonymousAvatarGlyph(facts.anonymousAvatarSeed) : <IconBadge icon="profile" tone={badge.tone} />}
         </span>
         <div className="pf-card-name">
           <strong>{facts.displayName}</strong>

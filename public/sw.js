@@ -5,7 +5,6 @@ const SHELL_ASSETS = [
   '/manifest.webmanifest',
   '/assets/characters/finmate-main.png',
   '/assets/characters/finmate-coach.png',
-  '/assets/characters/finmate-birthday.png',
   '/assets/characters/finmate-growth.png',
 ]
 

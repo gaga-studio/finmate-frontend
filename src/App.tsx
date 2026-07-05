@@ -142,5 +142,10 @@ function shouldShowBottomNav(route: Route) {
     'compare-group-preview',
     'compare-result',
     'compare-personal-flow',
+    'compare-member-start',
+    'compare-member-categories',
+    'compare-member-category-result',
+    'compare-member-versus',
+    'compare-member-simulation',
   ].includes(route.screen)
 }

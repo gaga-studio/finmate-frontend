@@ -158,6 +158,10 @@ const realApi = {
     request<AppScreenResponse>(`/api/app/compare/results/${comparisonId}/me`, {
       token,
     }),
+  getAppCompareMemberDetail: (memberId: string, token?: string) =>
+    request<AppScreenResponse>(`/api/app/compare/members/${memberId}`, {
+      token,
+    }),
   saveAppCompareReport: (comparisonId = 'cmp-001', token?: string) =>
     request<AppActionResultResponse>(`/api/app/compare/results/${comparisonId}/save`, {
       method: 'POST',
