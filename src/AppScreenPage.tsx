@@ -8,6 +8,13 @@ import { ErrorScreen, LoadingScreen, ScreenRenderer } from './screenRenderer'
 import { CompareFilterPage } from './CompareFilterPage'
 import { DetailedProfilePage } from './DetailedProfilePage'
 import { AssetCategoryDetailPage } from './AssetCategoryDetailPage'
+import { CompareMemberDetailPage } from './CompareMemberDetailPage'
+import { CompareStartPage } from './CompareStartPage'
+import { CompareCategoryPickerPage } from './CompareCategoryPickerPage'
+import { CompareCategoryResultPage } from './CompareCategoryResultPage'
+import { CompareOneOnOnePage } from './CompareOneOnOnePage'
+import { CompareOneOnOneSimulationPage } from './CompareOneOnOneSimulationPage'
+import type { OneOnOneCategoryId } from './compareCategory'
 
 type LoadState =
   | { status: 'loading' }
@@ -25,6 +32,31 @@ export function AppScreenPage({
 }) {
   if (route.screen === 'compare-filter') {
     return <CompareFilterPage navigate={navigate} />
+  }
+  if (route.screen === 'compare-member-detail') {
+    return <CompareMemberDetailPage memberId={route.param ?? ''} navigate={navigate} />
+  }
+  if (route.screen === 'compare-member-start') {
+    return <CompareStartPage memberId={route.param ?? ''} navigate={navigate} />
+  }
+  if (route.screen === 'compare-member-categories') {
+    return <CompareCategoryPickerPage memberId={route.param ?? ''} navigate={navigate} />
+  }
+  if (route.screen === 'compare-member-category-result') {
+    const [memberId, categoryId] = (route.param ?? '').split(':')
+    return (
+      <CompareCategoryResultPage
+        memberId={memberId ?? ''}
+        categoryId={(categoryId as OneOnOneCategoryId) ?? 'spending'}
+        navigate={navigate}
+      />
+    )
+  }
+  if (route.screen === 'compare-member-versus') {
+    return <CompareOneOnOnePage memberId={route.param ?? ''} navigate={navigate} />
+  }
+  if (route.screen === 'compare-member-simulation') {
+    return <CompareOneOnOneSimulationPage memberId={route.param ?? ''} navigate={navigate} />
   }
   if (route.screen === 'profile-detail') {
     return <DetailedProfilePage navigate={navigate} />
@@ -103,6 +135,14 @@ function loadScreen(route: Extract<Route, { name: 'screen' }>): Promise<AppScree
       return api.getAppCompareResult(route.param ?? 'cmp-001')
     case 'compare-personal-flow':
       return api.getAppComparePersonalFlow(route.param ?? 'cmp-001')
+    case 'compare-member-detail':
+    case 'compare-member-start':
+    case 'compare-member-categories':
+    case 'compare-member-category-result':
+    case 'compare-member-versus':
+    case 'compare-member-simulation':
+      // AppScreenPage intercepts these route-specific screens above.
+      return api.getAppCompare()
     case 'compare-coach':
       return api.getAppCoachFlow(route.param ?? 'cmp-001')
     case 'missions':

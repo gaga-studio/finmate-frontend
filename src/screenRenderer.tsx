@@ -11,7 +11,6 @@ import {
   IconButton,
   Legend,
   MiniLineChart,
-  BottomNav,
   ProgressLine,
   StatusBar,
   type IconName,
@@ -178,13 +177,13 @@ function HomeFomoPanel({ section, navigate }: SectionProps) {
   const fomoLabel = stringFromData(section.data, 'fomoLabel')
 
   return (
-    <button className="home-card home-fomo-card" type="button" onClick={() => navigate(section.detailPath ?? '/compare')}>
+    <article className="home-card home-fomo-card">
       <div className="home-fomo-copy">
         <HomeCardHeader section={section} navigate={navigate} />
         {section.subtitle ? <p>{section.subtitle}</p> : null}
         <ParticipationBar label={section.metrics?.[0]?.label ?? '이번 주 미션 완료'} participants={participants} total={total} fomoLabel={fomoLabel} />
       </div>
-    </button>
+    </article>
   )
 }
 
@@ -451,7 +450,6 @@ function CompareGroupPreviewScreen({ screen, navigate }: { screen: AppScreenResp
           {busy ? '리포트 만드는 중' : '이 그룹 리포트 보기'}
         </button>
       </div>
-      <BottomNav active="compare" navigate={navigate} />
     </div>
   )
 }
@@ -484,14 +482,13 @@ function CompareReferenceReportScreen({ screen, navigate }: { screen: AppScreenR
         </section>
         {metrics ? <CompareReportMetricGrid section={metrics} /> : null}
         {distribution ? <CompareReportDistribution section={distribution} /> : null}
-        {members ? <CompareGroupMembersSection section={members} /> : null}
+        {members ? <CompareGroupMembersSection section={members} navigate={navigate} /> : null}
       </section>
       <div className="compare-report-sticky-cta">
         <button className="app-button primary compare-flow-primary" type="button" onClick={() => navigate(`/compare/results/${comparisonId}/me`)}>
           나와 비교하기
         </button>
       </div>
-      <BottomNav active="compare" navigate={navigate} />
     </div>
   )
 }
@@ -576,7 +573,6 @@ function ComparePersonalFlowScreen({ screen, navigate }: { screen: AppScreenResp
             {primaryAction?.label ?? '비교 탭으로 돌아가기'}
           </button>
         </div>
-        <BottomNav active="compare" navigate={navigate} />
       </div>
     )
   }
@@ -620,7 +616,6 @@ function ComparePersonalFlowScreen({ screen, navigate }: { screen: AppScreenResp
           </button>
         )}
       </div>
-      <BottomNav active="compare" navigate={navigate} />
     </div>
   )
 }
@@ -1175,7 +1170,7 @@ function SectionRenderer({ section, navigate, screen }: { section: AppSection; n
     return <CompareProfileListSection section={section} navigate={navigate} />
   }
   if (section.kind === 'compareGroupMembers') {
-    return <CompareGroupMembersSection section={section} />
+    return <CompareGroupMembersSection section={section} navigate={navigate} />
   }
   if (section.kind === 'profileSegmented') {
     return <ProfileSegmentedControl section={section} navigate={navigate} />
@@ -2134,7 +2129,7 @@ function CompareProfileListSection({ section, navigate }: SectionProps) {
   )
 }
 
-function CompareGroupMembersSection({ section }: { section: AppSection }) {
+function CompareGroupMembersSection({ section, navigate }: { section: AppSection; navigate: Navigate }) {
   const items = section.items ?? []
   const pageSize = evenCompareMemberCount(numberFromData(section.data, 'pageSize') ?? 6)
   const initialVisible = evenCompareMemberCount(numberFromData(section.data, 'initialVisible') ?? pageSize)
@@ -2150,7 +2145,7 @@ function CompareGroupMembersSection({ section }: { section: AppSection }) {
       </div>
       <div className="compare-member-grid" aria-label="비교 그룹 사용자">
         {visibleItems.map((item) => (
-          <CompareMemberCard item={item} key={item.id} />
+          <CompareMemberCard item={item} navigate={navigate} key={item.id} />
         ))}
       </div>
       {hasMore ? (
@@ -2166,9 +2161,15 @@ function CompareGroupMembersSection({ section }: { section: AppSection }) {
   )
 }
 
-function CompareMemberCard({ item }: { item: AppItem }) {
+function CompareMemberCard({ item, navigate }: { item: AppItem; navigate: Navigate }) {
   // 그룹 구성원도 익명 개인 단위이므로 UI.md 6장 `anonymous` scope를 그대로 적용한다.
-  return <ProfileCard scope="anonymous" facts={profileFactsFromItem(item)} />
+  return (
+    <ProfileCard
+      scope="anonymous"
+      facts={profileFactsFromItem(item)}
+      onClick={item.detailPath ? () => navigate(item.detailPath ?? '/compare') : undefined}
+    />
+  )
 }
 
 function ListSection({ section, navigate }: SectionProps) {

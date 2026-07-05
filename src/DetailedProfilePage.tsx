@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import type { Navigate } from './navigation'
 import { AppSectionCard, SectionHeading } from './AppComponents'
 import { BigNumber, CoachBubble, MissionCard } from './components'
-import { IconButton, MiniLineChart, StatusBar } from './uiPrimitives'
+import { IconBadge, IconButton, MiniLineChart, StatusBar } from './uiPrimitives'
 import { detailedProfile, type AssetCategory, type SavingsTrendPoint, type SpendingCategory } from './detailedProfileData'
 import './detailedProfile.css'
 
@@ -66,7 +66,9 @@ function ProfileHero() {
   return (
     <section className="pd-hero">
       <div className="pd-avatar-wrap">
-        <img className="pd-avatar" src="/assets/characters/finmate-growth.png" alt="" aria-hidden="true" />
+        <span className="pd-avatar pd-avatar-icon" aria-hidden="true">
+          <IconBadge icon="profile" tone="teal" />
+        </span>
         <span className="pd-avatar-badge">{header.gradeBadge}</span>
       </div>
       <strong className="pd-nickname">{header.nickname}</strong>

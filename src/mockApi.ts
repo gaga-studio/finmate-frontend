@@ -44,38 +44,74 @@ function screen(partial: Partial<AppScreenResponse> & Pick<AppScreenResponse, 's
 }
 
 function buildCompareProfiles(count: number): AppItem[] {
-  const names = ['민지', '도윤', '서연', '지호', '하은', '유준', '채원', '태윤', '수아', '건우']
+  const names = ['단단한고래3396', '야무진구름2841', '반짝이는조약돌1170', '차분한나침반6032', '성실한별빛7425', '담백한바람9184', '유연한파도2507', '튼튼한새싹4861', '선명한달빛7720', '고요한숲길1358']
   const jobs = ['IT/개발', '마케팅', '금융', '디자인', '대학생/취준']
   const areas = ['서울 강남권', '서울 강북권', '경기권', '인천권', '부산권']
   const styles = ['절약형', '저축형', '투자형', '안정 추구형']
   return Array.from({ length: count }, (_, index) => {
+    const userId = `mock-p${String(index + 1).padStart(3, '0')}`
     const stockSignal = index % 3 === 0
     const savingSignal = index % 2 === 0
     const pensionSignal = index % 4 === 0
+    const monthlyIncome = 3_200_000 + index * 90_000
+    const monthlySavings = 280_000 + index * 22_000
+    const monthlySpending = 710_000 + index * 31_000
+    const totalAssets = 8_900_000 + index * 720_000
+    const investmentRatio = stockSignal ? 16 + (index % 5) * 3 : 5 + (index % 3) * 2
+    const emergencyFundMonths = Math.round((1.4 + (index % 6) * 0.35) * 10) / 10
     const foodSpend = 210000 + index * 8300
     const cafeSpend = 42000 + index * 1900
     return {
-      id: `compare-profile-${index + 1}`,
+      id: userId,
       title: names[index % names.length],
       subtitle: jobs[index % jobs.length],
       value: undefined,
       caption: undefined,
       icon: 'profile',
       tone: 'teal',
-      detailPath: null,
+      detailPath: `/compare/members/${userId}`,
       data: {
+        isAnonymous: true,
+        actualNameHidden: true,
+        anonymousAvatarSeed: userId,
         ageBand: '20대 후반',
         jobCategory: jobs[index % jobs.length],
         incomeBand: '3,000만원 ~ 4,000만원',
         area: areas[index % areas.length],
         moneyStyle: styles[index % styles.length],
+        score: 68 + (index % 8),
         stockSignal,
         savingSignal,
         pensionSignal,
+        subscriptionSignal: index % 5 === 0,
+        monthlyIncome,
+        monthlySavings,
+        monthlySpending,
+        totalAssets,
+        investmentRatio,
+        emergencyFundMonths,
         // anonymous scope 전용 — 카테고리 단위 정확 금액 (가맹점 단위 절대 금지)
         categorySpending: [
           { category: '식비', amountLabel: `${foodSpend.toLocaleString('ko-KR')}원` },
           { category: '카페·간식', amountLabel: `${cafeSpend.toLocaleString('ko-KR')}원` },
+          { category: '교통', amountLabel: `${(68000 + index * 2100).toLocaleString('ko-KR')}원` },
+          { category: '쇼핑', amountLabel: `${(86000 + index * 4300).toLocaleString('ko-KR')}원` },
+        ],
+        assetCategories: [
+          {
+            id: 'savings',
+            label: '예적금',
+            amountLabel: `${Math.round(totalAssets * 0.64).toLocaleString('ko-KR')}원`,
+            sharePercent: 64,
+            note: '현금성 자산 중심',
+          },
+          {
+            id: 'invest',
+            label: '투자',
+            amountLabel: `${Math.round(totalAssets * (investmentRatio / 100)).toLocaleString('ko-KR')}원`,
+            sharePercent: investmentRatio,
+            note: stockSignal ? '투자성 자산 보유' : '투자 비중 낮음',
+          },
         ],
         cashflowPattern: '월급날 25일 · 급여 직후 3일 지출 집중',
         savingsLabel: savingSignal ? `${(320 + index * 12).toLocaleString('ko-KR')}만원` : null,
@@ -92,7 +128,7 @@ function buildCompareProfiles(count: number): AppItem[] {
 const friendProductActionPool = ['청약 시작', '청년미래적금 가입', 'ETF 경험 있음', '비상금 통장 개설', '연금 준비중', '적금 자동이체 시작']
 
 function buildPeople(count: number, relation: 'following' | 'followers'): AppItem[] {
-  const names = ['민지', '도윤', '서연', '지호', '하은', '유준', '채원', '태윤']
+  const names = ['단단한고래3396', '야무진구름2841', '반짝이는조약돌1170', '차분한나침반6032', '성실한별빛7425', '담백한바람9184', '유연한파도2507', '튼튼한새싹4861']
   return Array.from({ length: count }, (_, index) => ({
     id: `${relation}-${index + 1}`,
     title: names[index % names.length],
@@ -104,6 +140,9 @@ function buildPeople(count: number, relation: 'following' | 'followers'): AppIte
     detailPath: null,
     // follow scope: 금액·시점은 절대 숨기고, "뭘 하는지"만 공개(UI.md 6장)
     data: {
+      isAnonymous: true,
+      actualNameHidden: true,
+      anonymousAvatarSeed: `${relation}-${index + 1}`,
       publicSignalCount: (index + 1) * 2,
       productActions: [friendProductActionPool[index % friendProductActionPool.length], friendProductActionPool[(index + 2) % friendProductActionPool.length]],
     },
@@ -112,11 +151,11 @@ function buildPeople(count: number, relation: 'following' | 'followers'): AppIte
 
 function buildActivity(count: number): AppItem[] {
   const activities = [
-    { title: '이지연', subtitle: '적금 · 연금', value: '+₩240,000' },
-    { title: '김민수', subtitle: '주식', value: '+₩520,000' },
-    { title: '박상우', subtitle: '적금 · 펀드', value: '+₩180,000' },
-    { title: '최유진', subtitle: '주식', value: '+₩120,000' },
-    { title: '정하나', subtitle: '적금', value: '+₩300,000' },
+    { title: '단단한고래3396', subtitle: '적금 · 연금', value: '2개 공개' },
+    { title: '야무진구름2841', subtitle: '주식', value: '1개 공개' },
+    { title: '반짝이는조약돌1170', subtitle: '적금 · 펀드', value: '2개 공개' },
+    { title: '차분한나침반6032', subtitle: '주식', value: '1개 공개' },
+    { title: '성실한별빛7425', subtitle: '적금', value: '1개 공개' },
   ] as const
   return Array.from({ length: count }, (_, index) => ({
     id: `activity-${index + 1}`,
@@ -132,17 +171,21 @@ function buildActivity(count: number): AppItem[] {
 }
 
 function buildParticipants(count: number): AppItem[] {
-  const names = ['민지', '도윤', '서연', '지호', '하은']
+  const names = ['단단한고래3396', '야무진구름2841', '반짝이는조약돌1170', '차분한나침반6032', '성실한별빛7425']
   return Array.from({ length: count }, (_, index) => ({
     id: `participant-${index + 1}`,
     title: names[index % names.length],
-    subtitle: '축하해요! 🎉',
+    subtitle: '축하 메시지 공개',
     value: null,
     caption: '참여 완료',
     icon: 'profile',
     tone: 'teal',
     detailPath: null,
-    data: null,
+    data: {
+      isAnonymous: true,
+      actualNameHidden: true,
+      anonymousAvatarSeed: `participant-${index + 1}`,
+    },
   }))
 }
 
@@ -354,6 +397,26 @@ function compareFilterScreen(filters: AppCompareSearchRequest = defaultCompareFi
     tab: 'compare',
     sections: [{ id: 'profiles', kind: 'compareProfileList', title: '검색 결과', items: profiles }],
     meta: { filters, filterOptions: compareFilterOptions(), resultCount },
+  })
+}
+
+function compareMemberDetailScreen(memberId: string): AppScreenResponse {
+  const member = buildCompareProfiles(12).find((item) => item.id === memberId) ?? buildCompareProfiles(1)[0]
+  return screen({
+    screenId: `compare:member:${memberId}`,
+    title: '익명 프로필',
+    tab: 'compare',
+    sections: [
+      {
+        id: 'member',
+        kind: 'compareMemberDetail',
+        title: member.title,
+        subtitle: member.subtitle,
+        items: [member],
+        data: { memberId: member.id, privacy: 'anonymous-public-summary' },
+      },
+    ],
+    meta: { memberId: member.id },
   })
 }
 
@@ -1379,6 +1442,7 @@ export const mockApi = {
   getAppCompareGroupPreview: (recommendationId: string) => wait(compareGroupPreviewScreen(recommendationId)),
   getAppCompareResult: (comparisonId = 'cmp-001') => wait(compareResultScreen(comparisonId)),
   getAppComparePersonalFlow: (comparisonId = 'cmp-001') => wait(comparePersonalFlowScreen(comparisonId)),
+  getAppCompareMemberDetail: (memberId: string) => wait(compareMemberDetailScreen(memberId)),
   saveAppCompareReport: (comparisonId = 'cmp-001'): Promise<AppActionResultResponse> =>
     wait({ status: 'SAVED', title: '리포트가 저장되었어요!', message: '마이 리포트에서 언제든 다시 확인할 수 있어요.', nextPath: '/profile', data: { comparisonId } }),
   getAppCoachFlow: (comparisonId = 'cmp-001') => wait(compareCoachScreen(comparisonId)),

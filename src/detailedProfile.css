@@ -17,11 +17,18 @@
 .pd-avatar {
   width: 100%;
   height: 100%;
+  display: grid;
+  place-items: center;
   border-radius: 999px;
   object-fit: cover;
   background: var(--teal-50);
   border: 3px solid var(--surface);
   box-shadow: var(--shadow-2);
+}
+
+.pd-avatar-icon .icon-badge {
+  width: 54px;
+  height: 54px;
 }
 
 .pd-avatar-badge {
