@@ -43,6 +43,10 @@ function screen(partial: Partial<AppScreenResponse> & Pick<AppScreenResponse, 's
   }
 }
 
+function manwonLabel(value: number): string {
+  return `${Math.round(value / 10_000).toLocaleString('ko-KR')}만원`
+}
+
 function buildCompareProfiles(count: number): AppItem[] {
   const names = ['단단한고래3396', '야무진구름2841', '반짝이는조약돌1170', '차분한나침반6032', '성실한별빛7425', '담백한바람9184', '유연한파도2507', '튼튼한새싹4861', '선명한달빛7720', '고요한숲길1358']
   const jobs = ['IT/개발', '마케팅', '금융', '디자인', '대학생/취준']
@@ -61,6 +65,9 @@ function buildCompareProfiles(count: number): AppItem[] {
     const emergencyFundMonths = Math.round((1.4 + (index % 6) * 0.35) * 10) / 10
     const foodSpend = 210000 + index * 8300
     const cafeSpend = 42000 + index * 1900
+    const transportSpend = 68000 + index * 2100
+    const shoppingSpend = 86000 + index * 4300
+    const categoryTotal = foodSpend + cafeSpend + transportSpend + shoppingSpend
     return {
       id: userId,
       title: names[index % names.length],
@@ -84,31 +91,31 @@ function buildCompareProfiles(count: number): AppItem[] {
         savingSignal,
         pensionSignal,
         subscriptionSignal: index % 5 === 0,
-        monthlyIncome,
-        monthlySavings,
-        monthlySpending,
-        totalAssets,
+        monthlyIncomeLabel: manwonLabel(monthlyIncome),
+        monthlySavingsLabel: manwonLabel(monthlySavings),
+        monthlySpendingLabel: manwonLabel(monthlySpending),
+        totalAssetsLabel: manwonLabel(totalAssets),
         investmentRatio,
         emergencyFundMonths,
-        // anonymous scope 전용 — 카테고리 단위 정확 금액 (가맹점 단위 절대 금지)
+        // anonymous scope 전용 — 가까운 만원 단위 카테고리 집계 (가맹점 단위 절대 금지)
         categorySpending: [
-          { category: '식비', amountLabel: `${foodSpend.toLocaleString('ko-KR')}원` },
-          { category: '카페·간식', amountLabel: `${cafeSpend.toLocaleString('ko-KR')}원` },
-          { category: '교통', amountLabel: `${(68000 + index * 2100).toLocaleString('ko-KR')}원` },
-          { category: '쇼핑', amountLabel: `${(86000 + index * 4300).toLocaleString('ko-KR')}원` },
+          { category: '식비', amountLabel: manwonLabel(foodSpend), sharePercent: Math.round((foodSpend / categoryTotal) * 100), rank: 1 },
+          { category: '카페·간식', amountLabel: manwonLabel(cafeSpend), sharePercent: Math.round((cafeSpend / categoryTotal) * 100), rank: 4 },
+          { category: '교통', amountLabel: manwonLabel(transportSpend), sharePercent: Math.round((transportSpend / categoryTotal) * 100), rank: 3 },
+          { category: '쇼핑', amountLabel: manwonLabel(shoppingSpend), sharePercent: Math.round((shoppingSpend / categoryTotal) * 100), rank: 2 },
         ],
         assetCategories: [
           {
             id: 'savings',
             label: '예적금',
-            amountLabel: `${Math.round(totalAssets * 0.64).toLocaleString('ko-KR')}원`,
+            amountLabel: manwonLabel(totalAssets * 0.64),
             sharePercent: 64,
             note: '현금성 자산 중심',
           },
           {
             id: 'invest',
             label: '투자',
-            amountLabel: `${Math.round(totalAssets * (investmentRatio / 100)).toLocaleString('ko-KR')}원`,
+            amountLabel: manwonLabel(totalAssets * (investmentRatio / 100)),
             sharePercent: investmentRatio,
             note: stockSignal ? '투자성 자산 보유' : '투자 비중 낮음',
           },

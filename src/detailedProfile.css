@@ -122,6 +122,26 @@
   line-height: 1.5;
 }
 
+.pd-public-amount {
+  display: grid;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+.pd-public-amount span {
+  color: var(--ink-500);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pd-public-amount strong {
+  color: var(--ink-900);
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .pd-bar-chart {
   display: flex;
   align-items: flex-end;

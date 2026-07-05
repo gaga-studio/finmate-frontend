@@ -76,12 +76,14 @@ function SimulationBody({ item, navigate }: { item: AppItem; navigate: Navigate 
   const beforeLabel = target.myLabel
   const afterLabel = formatGapValue(afterValue, target.unit)
   const additionalTotal = MONTHLY_ADDITIONAL_SAVING * PERIOD_MONTHS
+  const monthlyAdditionalLabel = formatGapValue(MONTHLY_ADDITIONAL_SAVING, 'won')
+  const additionalTotalLabel = formatGapValue(additionalTotal, 'won')
 
   return (
     <>
       <section className="compare-flow-body compare-report-body">
         <section className="compare-report-summary-panel">
-          <strong>매달 {MONTHLY_ADDITIONAL_SAVING.toLocaleString('ko-KR')}원 추가 저축 시나리오</strong>
+          <strong>매달 {monthlyAdditionalLabel} 추가 저축 시나리오</strong>
           <p>{PERIOD_MONTHS}개월 동안 이어가면 {target.label}이 어떻게 바뀌는지 보여드려요.</p>
         </section>
 
@@ -97,7 +99,7 @@ function SimulationBody({ item, navigate }: { item: AppItem; navigate: Navigate 
         </section>
 
         <p className="pd-insight">
-          {PERIOD_MONTHS}개월 동안 매월 {MONTHLY_ADDITIONAL_SAVING.toLocaleString('ko-KR')}원(총 {additionalTotal.toLocaleString('ko-KR')}원)을 추가로 저축하면
+          {PERIOD_MONTHS}개월 동안 매월 {monthlyAdditionalLabel}(총 {additionalTotalLabel})을 추가로 저축하면
           {' '}{target.label}이 {beforeLabel}에서 {afterLabel}로 올라가요.
         </p>
 

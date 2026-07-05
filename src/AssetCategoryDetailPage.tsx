@@ -28,7 +28,7 @@ export function AssetCategoryDetailPage({ categoryId, navigate }: { categoryId: 
 
       <section className="pd-detail-hero">
         <span className="pd-detail-eyebrow">{detail.eyebrow}</span>
-        <BigNumber value={detail.total} unit="원" size="l" />
+        <BigNumber value={manwonValue(detail.total)} unit="만원" size="l" />
       </section>
 
       {detail.statRows ? <StatRows rows={detail.statRows} /> : null}
@@ -43,6 +43,10 @@ export function AssetCategoryDetailPage({ categoryId, navigate }: { categoryId: 
       )}
     </div>
   )
+}
+
+function manwonValue(value: number): number {
+  return Math.round(value / 10_000)
 }
 
 function StatRows({ rows }: { rows: StatRow[] }) {

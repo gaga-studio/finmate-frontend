@@ -67,8 +67,20 @@ function numberFromData(item: AppItem, key: string, fallback: number): number {
   return typeof value === 'number' ? value : fallback
 }
 
+function moneyFromData(item: AppItem, key: string, fallback: number): number {
+  const label = item.data?.[`${key}Label`]
+  if (typeof label === 'string') {
+    const match = label.match(/[\d,]+/)
+    if (match) {
+      const value = Number(match[0].replace(/,/g, ''))
+      if (Number.isFinite(value)) return label.includes('만원') ? value * 10_000 : value
+    }
+  }
+  return numberFromData(item, key, fallback)
+}
+
 function won(value: number): string {
-  return `${Math.round(value).toLocaleString('ko-KR')}원`
+  return `${Math.round(value / 10_000).toLocaleString('ko-KR')}만원`
 }
 
 function percent(value: number): string {
@@ -81,6 +93,11 @@ function diffOf(myValue: number, peerValue: number, unit: 'won' | 'percent'): { 
     return { diffLabel: '거의 같아요', diffTone: 'flat' }
   }
   const formatted = unit === 'won' ? won(Math.abs(delta)) : percent(Math.abs(delta))
+  if (unit === 'won') {
+    return delta > 0
+      ? { diffLabel: `상대가 약 ${formatted} 높아요`, diffTone: 'up' }
+      : { diffLabel: `내가 약 ${formatted} 높아요`, diffTone: 'down' }
+  }
   return delta > 0 ? { diffLabel: `+${formatted}`, diffTone: 'up' } : { diffLabel: `-${formatted}`, diffTone: 'down' }
 }
 
@@ -98,8 +115,8 @@ function normalize(weights: number[]): number[] {
 function buildSpendingComparison(item: AppItem, idx: number): CategoryComparison {
   const myMonthlySpending = MY_BASELINE.monthlySpending
   const myMonthlySavings = MY_BASELINE.monthlySavings
-  const peerMonthlySpending = numberFromData(item, 'monthlySpending', myMonthlySpending)
-  const peerMonthlySavings = numberFromData(item, 'monthlySavings', myMonthlySavings)
+  const peerMonthlySpending = moneyFromData(item, 'monthlySpending', myMonthlySpending)
+  const peerMonthlySavings = moneyFromData(item, 'monthlySavings', myMonthlySavings)
 
   const myShares = [35, 20, 15, 30]
   const peerShares = normalize([29 + (idx % 3) * 2, 20 + (idx % 2) * 3, 15 + (idx % 4) * 4, 22 + (idx % 3)])
@@ -251,7 +268,7 @@ function buildLoanComparison(idx: number): CategoryComparison {
 function buildAssetsComparison(item: AppItem, idx: number): CategoryComparison {
   const myTotal = MY_BASELINE.totalAssets
   const myInvestRatio = MY_BASELINE.investmentRatio
-  const peerTotal = numberFromData(item, 'totalAssets', myTotal)
+  const peerTotal = moneyFromData(item, 'totalAssets', myTotal)
   const peerInvestRatio = numberFromData(item, 'investmentRatio', myInvestRatio)
 
   const myShares = [52, 18, 20, 10]
